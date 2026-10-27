@@ -1,0 +1,361 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,400..600&family=Inter:wght@400;500;600&family=Pirata+One&display=swap');
+
+/*
+ * Tarotheque / Basteleur — see FONTS.md.
+ * Basteleur is a genuine free/open font (Velvetyne Type Foundry, OFL-family
+ * license) designed around Tarot de Marseille imagery, but it is NOT
+ * distributed on a public CDN — it must be self-hosted. Tarotheque appears
+ * to be a commercial display font; we could not verify a free license for
+ * it, so it is declared here but never bundled — if you own a license,
+ * drop the files in client/public/fonts/ and it activates automatically.
+ * Until then, --font-tarot falls back to Pirata One (Google Fonts, free),
+ * a blackletter-style display face in the same mystical spirit.
+ */
+@font-face {
+  font-family: 'Tarotheque';
+  src: url('/fonts/Tarotheque.woff2') format('woff2'),
+       url('/fonts/Tarotheque.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Basteleur';
+  src: url('/fonts/Basteleur-Bold.woff2') format('woff2'),
+       url('/fonts/Basteleur-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Basteleur';
+  src: url('/fonts/Basteleur-Heavy.woff2') format('woff2'),
+       url('/fonts/Basteleur-Heavy.otf') format('opentype');
+  font-weight: 800;
+  font-display: swap;
+}
+
+/*
+ * Palette — mint / cream / coral, adapted from a hand-drawn tarot-boutique
+ * reference (mint header band, ivory body, black ink line-art, coral CTA
+ * ribbon + footer band). Every component reads colors through these
+ * variables and shared classes rather than literal hex values, so this
+ * file is the single place the whole site's identity lives.
+ */
+:root {
+  --ink: #F4ECD8;          /* page background — warm ivory */
+  --ink-panel: #FFFFFF;    /* card/panel background */
+  --ink-panel-raised: #E6F1EA; /* pale mint — hover/raised state */
+  --hairline: #241D14;     /* bold dark-ink line — the "black line art" throughout */
+  --parchment: #241D14;    /* main text — dark ink, not pure black */
+  --parchment-dim: #6B5D46;/* muted warm-brown secondary text */
+  --gold: #D9707A;         /* primary accent — coral */
+  --gold-bright: #B8434F;  /* deeper coral — headings/hover/emphasis (needs contrast on light bg) */
+  --wine: #6E3B4A;         /* secondary accent — deep wine, used sparingly */
+  --sky: #4A90A4;          /* secondary-button accent — teal-blue */
+  --sky-bright: #285B6B;   /* deep teal — secondary-button text/hover */
+  --cream: #F0DFAE;        /* butter-cream — spotlight panel background */
+  --cream-ink: #241D14;    /* text on the cream spotlight panel */
+  --coral: #D9707A;        /* same hue as --gold — ribbon/footer band background */
+  --mint: #8FCBA8;         /* header band + badge-ring background */
+  --mint-deep: #5B9C7C;    /* mint borders / orbit accents */
+  --image-placeholder: #E5DAC4;
+  --image-placeholder-shine: #F8F2E5;
+  --radius: 3px;
+  --serif: 'Fraunces', ui-serif, Georgia, serif;
+  --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-tarot: 'Tarotheque', 'Basteleur', 'Pirata One', var(--serif);
+}
+
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body {
+  background-color: var(--ink);
+  color: var(--parchment);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 500; margin: 0; letter-spacing: 0.01em; }
+p { margin: 0; }
+button { font-family: var(--sans); cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
+
+/* Reduced motion respected throughout */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+.container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+.container--narrow { max-width: 720px; }
+
+/* ── Decorative flourish divider (screenshot-inspired "— About me —" style) ── */
+.divider-flourish { display: flex; align-items: center; gap: 12px; color: var(--parchment-dim); margin: 8px 0 22px; font-size: 13px; letter-spacing: 0.05em; }
+.divider-flourish::before, .divider-flourish::after { content: ''; flex: 1; height: 1px; background: var(--hairline); }
+
+/* ── Ornate circular badge (screenshot-inspired mint icon-circle frames) ── */
+.badge-ring {
+  width: 84px; height: 84px; border-radius: 50%; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--mint-deep); background: var(--mint);
+  font-size: 26px; margin: 0 auto 14px;
+}
+.badge-ring::before {
+  content: ''; position: absolute; inset: -8px; border-radius: 50%;
+  border: 1px dashed var(--hairline);
+}
+
+/* ── Spotlight panel (screenshot-inspired cream "HELLO," welcome box) ── */
+.panel-spotlight {
+  background: var(--cream); color: var(--cream-ink); border-radius: 8px;
+  border: 1px solid var(--hairline);
+  padding: 30px 32px; display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+}
+.panel-spotlight .spotlight-word { font-family: var(--font-tarot); font-size: 34px; color: var(--wine); flex-shrink: 0; }
+.panel-spotlight p { color: var(--cream-ink); opacity: 0.85; line-height: 1.6; font-size: 14.5px; max-width: 46ch; }
+
+/* ── Site nav — mint band, screenshot-inspired ── */
+.site-nav-outer {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--ink);
+  border-bottom: 2px solid var(--hairline);
+}
+.site-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 28px; max-width: 1120px; margin: 0 auto;
+}
+.brand { display: flex; align-items: center; flex-shrink: 0; }
+.brand-logo { display: block; flex-shrink: 0; object-fit: contain; }
+.brand-logo--horizontal { width: auto; height: 84px; max-width: 400px; }
+.brand-logo--square, .brand-logo--circular {
+  width: var(--brand-logo-size, 48px);
+  height: var(--brand-logo-size, 48px);
+}
+.nav-links { display: flex; gap: 26px; font-size: 14.5px; align-items: center; }
+.nav-links a { color: var(--parchment); transition: color 0.15s ease; }
+.nav-links a:hover, .nav-links a:focus-visible { color: var(--gold-bright); }
+.nav-cta {
+  border: 1px solid var(--parchment); color: var(--parchment);
+  padding: 8px 16px; border-radius: var(--radius); font-size: 14px;
+}
+.nav-cta:hover { background: var(--parchment); color: var(--ink-panel); }
+.nav-avatar {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--sky-bright);
+  color: var(--sky-bright); flex-shrink: 0;
+}
+.nav-auth-pending {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--hairline); background: var(--image-placeholder);
+  flex-shrink: 0;
+}
+.nav-avatar:hover { background: var(--sky-bright); color: #fff; }
+.nav-logout { padding: 7px 14px !important; font-size: 13.5px !important; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px; border-radius: var(--radius); font-size: 15px; font-weight: 500;
+  border: 1px solid transparent; transition: transform 0.12s ease, background 0.15s ease;
+}
+.btn:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.btn-primary { background: var(--gold); color: #fff; }
+.btn-primary:hover { background: var(--gold-bright); }
+.btn-ghost { border-color: var(--sky); color: var(--sky-bright); }
+.btn-ghost:hover { background: var(--sky); color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Ribbon-tab CTA (screenshot-inspired pointed pill, e.g. "My Services") */
+.btn-ribbon {
+  position: relative; display: inline-flex; align-items: center;
+  background: var(--coral); color: #fff; padding: 10px 26px; font-size: 14px; font-weight: 500;
+  clip-path: polygon(6% 0, 94% 0, 100% 50%, 94% 100%, 6% 100%, 0 50%);
+}
+.btn-ribbon:hover { background: var(--gold-bright); }
+
+/* ── Hero: asymmetric layout with orbit diagram ── */
+.hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding: 76px 0 64px; }
+.hero-eyebrow { color: var(--gold-bright); font-size: 14px; margin-bottom: 14px; font-weight: 500; }
+.hero h1 { font-size: clamp(38px, 5vw, 58px); line-height: 1.08; max-width: 12ch; }
+.hero-lede { margin-top: 20px; max-width: 42ch; color: var(--parchment-dim); font-size: 17px; }
+.hero-actions { display: flex; gap: 14px; margin-top: 34px; align-items: center; }
+
+.trust-bar { display: flex; gap: 28px; margin-top: 30px; flex-wrap: wrap; }
+.trust-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--parchment-dim); }
+.trust-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+
+@keyframes orbit-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+.orbit { position: relative; width: 100%; aspect-ratio: 1; max-width: 420px; margin: 0 auto; overflow: hidden; }
+.orbit-ring { position: absolute; border: 1px solid var(--hairline); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.orbit-ring--1 { width: 100%; height: 100%; animation: orbit-spin 120s linear infinite; }
+.orbit-ring--2 { width: 68%; height: 68%; animation: orbit-spin 90s linear infinite reverse; }
+.orbit-ring--3 { width: 36%; height: 36%; border-color: var(--mint-deep); }
+.orbit-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 14%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold), var(--gold-bright) 70%); }
+.orbit-node {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  width: 96px; height: 96px; border-radius: 50%; background: var(--ink-panel);
+  border: 1px solid var(--hairline); font-family: var(--serif); font-size: 13.5px; text-align: center;
+  padding: 6px; line-height: 1.25; color: var(--parchment);
+}
+.orbit-node:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
+
+/* ── Section ── */
+.section { padding: 60px 0; border-top: 1px solid var(--hairline); }
+.section h2 { font-size: 28px; margin-bottom: 10px; }
+.section-lede { color: var(--parchment-dim); max-width: 56ch; margin-bottom: 36px; }
+
+.engine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); }
+.engine-cell { background: var(--ink); padding: 28px; }
+.engine-cell h3 { font-size: 19px; color: var(--gold-bright); margin-bottom: 8px; }
+.engine-cell ul { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.engine-cell li a { font-size: 15px; color: var(--parchment-dim); display: block; padding: 2px 0; border-bottom: 1px solid transparent; }
+.engine-cell li a:hover { color: var(--parchment); border-bottom-color: var(--gold); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .engine-grid { grid-template-columns: 1fr; }
+  .site-nav { flex-wrap: wrap; gap: 12px; }
+}
+
+/* ── Card artwork ── */
+.card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 180px));
+  gap: 22px;
+  justify-content: center;
+  align-items: start;
+  margin: 34px 0;
+}
+@keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+.tarot-card {
+  width: 100%; max-width: 190px; min-width: 0; justify-self: center;
+  border-radius: 8px; border: 1px solid var(--hairline);
+  background: var(--ink-panel);
+  padding: 12px 12px 15px; display: flex; flex-direction: column; gap: 9px;
+  animation: card-in 0.4s ease-out both;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.tarot-card:hover { transform: translateY(-4px); border-color: var(--gold); }
+.tarot-card .position { font-size: 11px; letter-spacing: 0.04em; color: var(--gold-bright); text-transform: uppercase; }
+.card-art-stage {
+  position: relative; width: 100%; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--hairline); border-radius: 4px;
+  background: var(--image-placeholder);
+}
+@keyframes skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.card-art-skeleton {
+  position: absolute; inset: 0; overflow: hidden; background: var(--image-placeholder);
+}
+.card-art-skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--image-placeholder-shine), transparent);
+  animation: skeleton-shimmer 1.25s ease-in-out infinite;
+}
+.card-art-image {
+  object-fit: contain !important;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.card-art-image.is-loaded { opacity: 1; }
+.card-art-stage.is-reversed .card-art-image { transform: rotate(180deg); }
+.card-art-fallback {
+  width: 100%; aspect-ratio: 300 / 527; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: 4px;
+  background: var(--image-placeholder); color: var(--parchment-dim); text-align: center;
+}
+.card-art-fallback__monogram {
+  display: flex; align-items: center; justify-content: center;
+  width: 58px; height: 58px; border: 1px solid var(--mint-deep); border-radius: 50%;
+  background: var(--ink-panel); color: var(--parchment); font-family: var(--serif); font-size: 22px;
+}
+.card-art-fallback__label { font-size: 11.5px; line-height: 1.3; }
+.tarot-card .name {
+  font-family: var(--font-tarot); font-size: 17px; line-height: 1.25;
+  letter-spacing: 0.01em; overflow-wrap: anywhere;
+}
+.tarot-card .orientation { font-size: 12px; color: var(--parchment-dim); }
+.tarot-card .meaning { font-size: 13px; color: var(--parchment-dim); line-height: 1.4; margin-top: auto; }
+
+/* ── Admin shell ── */
+.admin-layout {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr);
+  gap: 36px; padding-top: 40px; padding-bottom: 70px;
+}
+.admin-sidebar { min-width: 0; }
+.admin-brand {
+  --brand-logo-size: 48px;
+  display: flex; align-items: center; gap: 11px; margin-bottom: 22px;
+}
+.admin-brand__title { color: var(--gold-bright); font-family: var(--serif); font-size: 17px; line-height: 1.3; }
+.admin-nav { display: flex; flex-direction: column; gap: 4px; }
+.admin-nav__link {
+  display: block; padding: 9px 12px; border-radius: var(--radius);
+  color: var(--parchment-dim); font-size: 14.5px;
+}
+.admin-nav__link.is-active { background: var(--ink-panel-raised); color: var(--gold-bright); }
+.admin-nav__link:hover, .admin-nav__link:focus-visible { color: var(--gold-bright); }
+.admin-signout { width: 100%; justify-content: center; margin-top: 24px; }
+
+/* ── User workspace ── */
+.workspace-header { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; }
+.workspace-header .brand-logo--circular {
+  --brand-logo-size: 72px;
+  border: 1px solid var(--mint-deep); border-radius: 50%; background: var(--ink-panel);
+}
+.workspace-header h1 { font-size: 32px; }
+.workspace-header__eyebrow {
+  margin-bottom: 2px; color: var(--gold-bright); font-size: 11.5px;
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+
+/* Astro/tarot content headings use the mystical display stack too */
+.heading-tarot { font-family: var(--font-tarot); letter-spacing: 0.01em; }
+
+/* ── Forms ── */
+.form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.form-field label { font-size: 13.5px; color: var(--parchment-dim); }
+.form-field input, .form-field select, .form-field textarea {
+  background: var(--ink-panel); border: 1px solid var(--hairline); color: var(--parchment);
+  padding: 11px 13px; border-radius: var(--radius); font-size: 15px; font-family: var(--sans);
+}
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold); }
+.form-error { color: #A8333D; font-size: 13.5px; margin-top: -6px; margin-bottom: 14px; }
+.form-success { color: var(--sky-bright); font-size: 13.5px; margin-top: -6px; margin-bottom: 14px; }
+.form-note { color: var(--parchment-dim); font-size: 13px; }
+
+.panel { background: var(--ink-panel); border: 1px solid var(--hairline); border-radius: 6px; padding: 26px; }
+
+table.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.data-table th { text-align: left; color: var(--parchment-dim); font-weight: 500; padding: 10px 12px; border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
+table.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+table.data-table tr:hover td { background: var(--ink-panel-raised); }
+
+.tag { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; border: 1px solid var(--hairline); color: var(--parchment-dim); }
+.tag--gold { border-color: var(--gold); color: var(--gold-bright); }
+
+/* Segmented tab control (admin content page, dashboard tabs) */
+.tab-btn { border: 1px solid var(--sky); color: var(--sky-bright); background: transparent; padding: 10px 18px; border-radius: var(--radius); font-size: 14px; }
+.tab-btn.is-active { background: var(--gold); color: #fff; border-color: var(--gold); }
+
+/* ── Footer — coral band, screenshot-inspired ── */
+.site-footer { background: var(--coral); color: #fff; padding: 30px 0; font-size: 13.5px; }
+.site-footer a:hover { text-decoration: underline; }
+
+@media (max-width: 760px) {
+  .container { padding: 0 20px; }
+  .site-nav { padding: 14px 20px; gap: 10px 16px; }
+  .brand-logo--horizontal { height: 68px; max-width: calc(100vw - 40px); }
+  .nav-links { gap: 16px; flex-wrap: wrap; }
+  .admin-layout { grid-template-columns: 1fr; gap: 22px; padding-top: 28px; padding-bottom: 50px; }
+  .admin-brand { --brand-logo-size: 42px; margin-bottom: 16px; }
+  .admin-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+  .admin-signout { width: auto; margin-top: 16px; }
+  .workspace-header { gap: 14px; }
+  .workspace-header .brand-logo--circular { --brand-logo-size: 58px; }
+  .workspace-header h1 { font-size: 27px; }
+  .card-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; }
+  .tarot-card { padding: 9px 9px 12px; }
+}

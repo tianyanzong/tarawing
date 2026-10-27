@@ -1,0 +1,43 @@
+'use strict';
+// Traditional 36-card Lenormand deck. Meanings are the standard short
+// keyword glosses associated with each card in the Lenormand tradition —
+// general knowledge, not any single author's copyrighted text.
+const LENORMAND_DECK = [
+  { n: 1, name: 'Rider', meaning: 'News, messages, something arriving soon.' },
+  { n: 2, name: 'Clover', meaning: 'Small luck, a brief window of opportunity.' },
+  { n: 3, name: 'Ship', meaning: 'Travel, distance, movement away from home.' },
+  { n: 4, name: 'House', meaning: 'Home, security, family, the domestic sphere.' },
+  { n: 5, name: 'Tree', meaning: 'Health, slow growth, roots, long-term matters.' },
+  { n: 6, name: 'Clouds', meaning: 'Confusion, temporary trouble, unclear thinking.' },
+  { n: 7, name: 'Snake', meaning: 'Complication, a detour, someone not to be trusted.' },
+  { n: 8, name: 'Coffin', meaning: 'An ending, transformation, something closing.' },
+  { n: 9, name: 'Bouquet', meaning: 'A gift, a pleasant surprise, an invitation.' },
+  { n: 10, name: 'Scythe', meaning: 'A sudden cut, decisive action, a sharp ending.' },
+  { n: 11, name: 'Whip', meaning: 'Conflict, repetition, an argument or routine.' },
+  { n: 12, name: 'Birds', meaning: 'Conversation, anxiety, a pair or a nervous exchange.' },
+  { n: 13, name: 'Child', meaning: 'A new beginning, innocence, something small or young.' },
+  { n: 14, name: 'Fox', meaning: 'Cunning, work, caution needed in a situation.' },
+  { n: 15, name: 'Bear', meaning: 'Strength, protection, or a dominant influence.' },
+  { n: 16, name: 'Stars', meaning: 'Hope, guidance, clarity found at night.' },
+  { n: 17, name: 'Stork', meaning: 'Change, improvement, a shift already underway.' },
+  { n: 18, name: 'Dog', meaning: 'Loyalty, friendship, a trustworthy companion.' },
+  { n: 19, name: 'Tower', meaning: 'Isolation, institutions, a structure keeping distance.' },
+  { n: 20, name: 'Garden', meaning: 'Public life, community, socializing.' },
+  { n: 21, name: 'Mountain', meaning: 'An obstacle, delay, or a blockage to overcome.' },
+  { n: 22, name: 'Crossroad', meaning: 'A choice, options, a decision point.' },
+  { n: 23, name: 'Mice', meaning: 'Loss, erosion, something slowly wearing away.' },
+  { n: 24, name: 'Heart', meaning: 'Love, affection, matters of the heart.' },
+  { n: 25, name: 'Ring', meaning: 'Commitment, contracts, a cycle or partnership.' },
+  { n: 26, name: 'Book', meaning: 'Hidden knowledge, secrets, something yet to be learned.' },
+  { n: 27, name: 'Letter', meaning: 'A document, message, or piece of written news.' },
+  { n: 28, name: 'Man', meaning: 'A male figure or the male querent.' },
+  { n: 29, name: 'Woman', meaning: 'A female figure or the female querent.' },
+  { n: 30, name: 'Lily', meaning: 'Maturity, peace, a calm and experienced influence.' },
+  { n: 31, name: 'Sun', meaning: 'Success, vitality, clear and confident energy.' },
+  { n: 32, name: 'Moon', meaning: 'Recognition, emotion, intuition and reputation.' },
+  { n: 33, name: 'Key', meaning: 'A solution, certainty, an important unlocking.' },
+  { n: 34, name: 'Fish', meaning: 'Money, abundance, flow of resources.' },
+  { n: 35, name: 'Anchor', meaning: 'Stability, a long-term commitment, feeling secure.' },
+  { n: 36, name: 'Cross', meaning: 'Burden, fate, a difficulty that must be carried.' },
+];
+module.exports = { LENORMAND_DECK };

@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.test-dist/
+test-results/
+playwright-report/
+.playwright-results/
+dist/
+*.tsbuildinfo
+.env
+.DS_Store
+npm-debug.log*

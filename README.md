@@ -150,6 +150,126 @@ idempotency and cursor pagination, then drops the schema. It is skipped when
 `TEST_DATABASE_URL` is unset. It refuses to run against a database whose name
 does not end in `_test`.
 
+## Production deployment
+
+TaraWing deploys as two Node.js services backed by PostgreSQL:
+
+| Service | Default port | Production command |
+|---|---:|---|
+| Next.js frontend | `3300` | `npm start` in `client/` |
+| Express API | `3301` | `npm start` in `server/` |
+
+Do not use `npm run dev` or `node --watch` in production. Put both services
+behind a process manager or supervisor such as systemd, Docker, or your
+platform's process runner, and terminate TLS at a reverse proxy.
+
+### 1. Prepare production environment
+
+Create a PostgreSQL database and take a backup before the first deployment.
+Populate `server/.env` from `server/.env.example`; at minimum set:
+
+```dotenv
+NODE_ENV=production
+PORT=3301
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/tarawing
+JWT_SECRET=<strong-random-secret>
+ADMIN_TOKEN=<strong-bootstrap-admin-password>
+ADMIN_USERNAME=admin
+DB_REINIT=false
+ALLOWED_ORIGIN=https://app.example.com
+LOG_FORMAT=json
+```
+
+`JWT_SECRET` signs both user and admin sessions. `ADMIN_TOKEN` is the initial
+super-admin password created on first boot, despite its historical name.
+The server refuses to start in production if either value is missing or still
+uses a placeholder. `DB_REINIT=true` is also refused in production and must
+never be used against a database containing real data.
+
+The normal production boot creates missing tables and indexes, seeds admin
+settings/FAQ/articles, and does **not** seed the demo user. This project does
+not yet have versioned migrations, so take a backup and apply deliberate schema
+migrations before deploying breaking database changes.
+
+### 2. Build and start the API
+
+```bash
+cd server
+npm ci
+npm run build
+npm start
+```
+
+`npm run build` performs syntax validation across all API source files.
+Express is plain JavaScript, so no compiled output is produced. A successful
+startup logs `TaraWing API listening on :3301`. Verify database connectivity:
+
+```bash
+curl --fail https://api.example.com/api/settings
+```
+
+### 3. Build and start the frontend
+
+`NEXT_PUBLIC_API_BASE` is embedded into the browser bundle at build time. Set it
+to the public API origin before `npm run build`; changing it later requires a
+frontend rebuild.
+
+```bash
+cd client
+npm ci
+NEXT_PUBLIC_API_BASE=https://api.example.com npm run build
+npm start
+```
+
+If the API is exposed at a different host, set the Express `ALLOWED_ORIGIN`
+to the exact frontend origin and keep credentials enabled. For a same-origin
+deployment where Next serves `/api/*`, set `API_PROXY_TARGET` so Next can proxy
+to the local Express service.
+
+### 4. Reverse proxy layout
+
+A typical public layout is:
+
+```text
+https://app.example.com  -> 127.0.0.1:3300
+https://api.example.com  -> 127.0.0.1:3301
+```
+
+Example Nginx location blocks:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3300;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Use the equivalent block with `3301` on the API hostname. Forward HTTPS headers
+through the proxy and test both the frontend and authenticated API requests
+after every deployment.
+
+### 5. Production checks
+
+```bash
+# From the repository root
+npm run build
+
+# Server, with TEST_DATABASE_URL configured
+cd server
+npm test
+
+cd ../client
+npm test
+npm run test:e2e
+```
+
+The current payment gateway is still sandbox-only and
+`ANTHROPIC_API_KEY` is required for automatic AI-generated Deep Insights.
+Do not advertise live payments or AI output until those integrations are
+configured and tested in the production environment.
+
 ## Design
 
 Warm pale-yellow header/page background, white cards, coral CTA buttons and

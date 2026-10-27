@@ -117,6 +117,8 @@ screenshots included.
 - **Run both:** from the repo root, `npm install && npm run dev`
   (uses `concurrently`)
 - **Build frontend:** `cd client && npm run build`
+- **Build backend validation:** `cd server && npm run build`
+- **Build both:** from the repo root, `npm run build`
 - **Type-check frontend:** `cd client && npx tsc --noEmit`
 - **Lint:** not yet configured — if you add one, wire it into both
   `package.json`s and mention it here.

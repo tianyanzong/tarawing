@@ -21,7 +21,7 @@ export default defineConfig({
     channel: 'chrome',
   },
   webServer: {
-    command: 'npm run dev -- -p 3300',
+    command: 'npm run dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

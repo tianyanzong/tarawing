@@ -515,6 +515,20 @@ promise. Corrected:
 - [x] Added explicit Next image qualities for the logo/card variants to remove
       the Next 16 preparation warning.
 
+## Batch 22 — Backend build command and production deployment docs (DONE)
+- [x] Added `server/scripts/build.js`, which syntax-validates all 23 backend
+      JavaScript source files, and wired it to `npm run build` in `server/`.
+- [x] Added a root `npm run build` command that runs backend validation and the
+      frontend production build in sequence.
+- [x] Set client `dev` and `start` scripts to port 3300 directly, so plain
+      `npm run dev` / `npm start` no longer depend on extra CLI arguments.
+- [x] Added README production deployment details for environment variables,
+      separate frontend/API builds, process supervision, same-origin versus
+      cross-origin API configuration, reverse proxy routing, health checks,
+      database backup/migration caveats, and sandbox-payment limitations.
+- [x] Verified `cd server && npm run build` succeeds and the root build
+      completes both backend validation and all 25 frontend pages.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`

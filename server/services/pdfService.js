@@ -15,7 +15,7 @@ const MUTED = '#6B5D46';
 function renderReportPdf(reading, category) {
   const doc = new PDFDocument({ size: 'A4', margins: { top: 64, bottom: 64, left: 64, right: 64 } });
 
-  doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(22).text('TaraWing', { continued: false });
+  doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(22).text('Tarawing', { continued: false });
   doc.fillColor(MUTED).font('Helvetica').fontSize(11).text('Read the Cosmos. Find Your Path.');
   doc.moveDown(0.5);
   doc.strokeColor(INK).lineWidth(1).moveTo(doc.x, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();

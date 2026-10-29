@@ -1,11 +1,12 @@
 'use strict';
-// Position definitions for the Sacred Layout Engine (holy_triangle,
-// gypsy_cross, hexagram, solomon_star — exposed via the consolidated
-// /spreads page) plus the Seven Planets bridge spread (exposed as a mode
-// on the /astrology page, not under /spreads). Each spread lists its card
-// count, its positions, and — in cardService.SPREAD_DECK — exactly one
-// fixed deck; there is no client-selectable deck for any of these.
+// Position definitions for the Sacred Layout Engine, plus the Seven Planets
+// bridge spread exposed under /astrology. Each spread lists its card count,
+// positions, and exactly one fixed deck in cardService.SPREAD_DECK.
 const SPREADS = {
+  lenormand_pair: {
+    label: 'Lenormand Pair', cardCount: 2,
+    positions: ['Subject', 'Modifier'],
+  },
   holy_triangle: {
     label: 'Holy Triangle', cardCount: 3,
     positions: ['Past', 'Present', 'Future'],

@@ -2,14 +2,14 @@
 // Pricing and admin-reporting category for each reading type. Three
 // categories, matching the site's three "engines": tarot (single-card
 // draws, the Oracle Engine), astrology (natal chart + the Seven Planets
-// bridge spread, both live on /astrology), spreads (the four Sacred Layout
-// Engine spreads on /spreads).
+// bridge spread), and spreads (the Sacred Layout Engine on /spreads).
 const CATEGORY_OF_TYPE = {
   tarot: 'tarot',
   lenormand: 'tarot',
   playing_cards: 'tarot',
   astrology_natal: 'astrology',
   seven_planets: 'astrology',
+  lenormand_pair: 'spreads',
   holy_triangle: 'spreads',
   gypsy_cross: 'spreads',
   hexagram: 'spreads',

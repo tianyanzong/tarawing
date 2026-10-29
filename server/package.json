@@ -1,7 +1,7 @@
 {
   "name": "tarawing-server",
   "version": "1.0.0",
-  "description": "TaraWing API — Express + PostgreSQL",
+  "description": "Tarawing API — Express + PostgreSQL",
   "main": "server.js",
   "scripts": {
     "build": "node scripts/build.js",

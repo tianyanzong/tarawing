@@ -1,6 +1,7 @@
 export type ReadingType =
   | 'astrology_natal' | 'tarot' | 'lenormand' | 'playing_cards'
-  | 'holy_triangle' | 'gypsy_cross' | 'hexagram' | 'solomon_star' | 'seven_planets';
+  | 'lenormand_pair' | 'holy_triangle' | 'gypsy_cross' | 'hexagram'
+  | 'solomon_star' | 'seven_planets';
 
 export interface Card {
   name: string;

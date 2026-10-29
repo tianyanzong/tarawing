@@ -1,4 +1,4 @@
-# TaraWing — Read the Cosmos. Find Your Path.
+# Tarawing — Read the Cosmos. Find Your Path.
 
 Astrology, Tarot, Lenormand, and sacred-geometry card spreads, with
 AI-generated readings, per-user account management, and a full admin
@@ -93,10 +93,15 @@ Admin: username from `ADMIN_USERNAME` (default `admin`), password from
 Or from the repo root, `npm install && npm run dev` runs both via `concurrently`.
 
 On every normal startup, the demo user is created if missing, then seeded
-idempotently with six readings across Tarot, Lenormand, playing cards,
+idempotently with six readings across Tarot, Lenormand Pair, playing cards,
 astrology, and spreads; three orders; three notifications; and one answered
 consultation. Stable demo IDs and `ON CONFLICT DO NOTHING` mean restarting the
 server does not duplicate rows.
+
+Lenormand is available as the first option in **The Sacred Layout Engine**:
+`/spreads?type=lenormand_pair`. It draws two cards with `Subject` and
+`Modifier` positions. The old single-card URL
+`/tarot?deck=lenormand` redirects to the pair layout.
 
 ## Environment variables (`server/.env`)
 
@@ -152,7 +157,7 @@ does not end in `_test`.
 
 ## Production deployment
 
-TaraWing deploys as two Node.js services backed by PostgreSQL:
+Tarawing deploys as two Node.js services backed by PostgreSQL:
 
 | Service | Default port | Production command |
 |---|---:|---|
@@ -202,7 +207,7 @@ npm start
 
 `npm run build` performs syntax validation across all API source files.
 Express is plain JavaScript, so no compiled output is produced. A successful
-startup logs `TaraWing API listening on :3301`. Verify database connectivity:
+startup logs `Tarawing API listening on :3301`. Verify database connectivity:
 
 ```bash
 curl --fail https://api.example.com/api/settings
@@ -265,6 +270,17 @@ npm test
 npm run test:e2e
 ```
 
+After deploying a frontend change, purge the CDN/Cloudflare cache for the HTML
+document and confirm in the browser Network panel that the expected new build
+assets are being served:
+
+```bash
+curl -fsSI https://app.example.com/ | grep -i cache-control
+```
+
+Hashed files under `/_next/static/` can be cached for long periods, but HTML
+documents should not be given multi-month shared-cache lifetimes.
+
 The current payment gateway is still sandbox-only and
 `ANTHROPIC_API_KEY` is required for automatic AI-generated Deep Insights.
 Do not advertise live payments or AI output until those integrations are
@@ -278,6 +294,10 @@ footer band, bold dark-ink borders and illustrated card assets — see
 shared classes (`.btn-primary`, `.panel`, `.tag`, etc.) rather than literal
 hex values. Tarot, Lenormand, and playing-card faces are supplied WebP images
 loaded through `next/image` with skeleton and error states.
+
+All public page containers, navigation, and footer content share the
+`--content-width` variable (`1120px`) so their horizontal edges align at every
+viewport width.
 
 ## Fonts
 

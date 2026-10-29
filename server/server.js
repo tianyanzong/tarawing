@@ -1,5 +1,5 @@
 /**
- * server/server.js — TaraWing API. Express + PostgreSQL.
+ * server/server.js — Tarawing API. Express + PostgreSQL.
  * Mirrors the route-and-permission architecture of the reference project
  * (tianyan) — JWT user auth, admin RBAC over permission domains, a JSONB
  * "readings" table standing in for its per-tool report subtables, and a
@@ -14,7 +14,10 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const { logger, httpLogger } = require('./utils/logger');
-const { db, initSchema, ensureSuperAdmin, seedDemoData, seedFaq, seedArticles, seedSettings, id, now } = require('./db');
+const {
+  db, initSchema, ensureSuperAdmin, seedDemoData, seedFaq, seedArticles,
+  seedSettings, normalizeBrandText, id, now,
+} = require('./db');
 const {
   signUserToken, signAdminToken, requireUser, requireActive, optAuth,
   requireAdmin, requirePerm, requireSuper, authRateLimit, parsePerms,
@@ -138,7 +141,7 @@ app.post('/api/readings', optAuth, validate(S.createReading), ah(async (req, res
     resultBasic = computeNatalChart(body);
   } else if (Object.keys(SPREADS).includes(body.type)) {
     resultBasic = drawSpread(body.type); // deck is fixed per spread server-side, see cardService.SPREAD_DECK
-  } else if (['tarot', 'lenormand', 'playing_cards'].includes(body.type)) {
+  } else if (['tarot', 'playing_cards'].includes(body.type)) {
     // Single-card / free-form draw of the named deck (default 1 card).
     resultBasic = { deck: body.type, cards: drawCards(body.type, 1).map((card) => ({ position: 'Draw', card })) };
   } else {
@@ -648,7 +651,8 @@ const PORT = process.env.PORT || 3301;
   await seedFaq();
   await seedArticles();
   if (process.env.NODE_ENV !== 'production') await seedDemoData();
-  app.listen(PORT, () => logger.info(`TaraWing API listening on :${PORT}`));
+  await normalizeBrandText();
+  app.listen(PORT, () => logger.info(`Tarawing API listening on :${PORT}`));
 })().catch((err) => {
   if (err.code === '3D000') {
     logger.error(`Database does not exist yet. Create it first, e.g.: createdb ${process.env.PGDATABASE || '<your DB name from DATABASE_URL>'}`);

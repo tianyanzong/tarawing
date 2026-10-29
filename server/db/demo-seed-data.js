@@ -32,23 +32,35 @@ const DEMO_READINGS = [
     createdAt: '2026-10-20T09:00:00.000Z',
   },
   {
-    id: 'demo_rd_lenormand_crossroad',
-    type: 'lenormand',
+    id: 'demo_rd_lenormand_pair',
+    type: 'lenormand_pair',
     question: 'Which opportunity deserves my attention?',
     status: 'new',
-    inputData: { type: 'lenormand', question: 'Which opportunity deserves my attention?' },
+    inputData: { type: 'lenormand_pair', question: 'Which opportunity deserves my attention?' },
     resultBasic: {
+      spread: 'lenormand_pair',
+      label: 'Lenormand Pair',
       deck: 'lenormand',
-      cards: [{
-        position: 'Draw',
-        card: {
-          n: 22,
-          name: 'Crossroad',
-          meaning: 'A choice, options, a decision point.',
+      cards: [
+        {
+          position: 'Subject',
+          card: {
+            n: 22,
+            name: 'Crossroad',
+            meaning: 'A choice, options, a decision point.',
+          },
         },
-      }],
+        {
+          position: 'Modifier',
+          card: {
+            n: 1,
+            name: 'Rider',
+            meaning: 'News, messages, something arriving soon.',
+          },
+        },
+      ],
     },
-    simpleReport: 'Crossroad is direct: a decision is already in front of you. Compare the practical cost of each option before choosing.',
+    simpleReport: 'Crossroad sets the subject: a decision is already in front of you. Rider modifies it with movement and incoming news, so compare the practical cost before choosing.',
     detailedReport: null,
     deepInsightsReport: null,
     createdAt: '2026-10-21T09:00:00.000Z',

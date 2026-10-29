@@ -17,6 +17,7 @@ const { SPREADS } = require('../data/spreads');
 // a crafted request can't override it. Gypsy Cross traditionally draws
 // from a 36-card shortened pack, not the full 52; the others are Tarot-only.
 const SPREAD_DECK = {
+  lenormand_pair: 'lenormand',
   holy_triangle: 'tarot',
   gypsy_cross: 'playing_cards_36',
   hexagram: 'tarot',
@@ -65,10 +66,9 @@ function drawCards(deckName, count) {
 }
 
 /**
- * Draw a full named spread (holy_triangle, gypsy_cross, hexagram,
- * solomon_star, seven_planets). The deck is NOT a caller-supplied option —
- * each spread has exactly one correct deck (see SPREAD_DECK above), applied
- * here regardless of anything a client might send.
+ * Draw a full named spread. The deck is NOT a caller-supplied option; each
+ * spread has exactly one correct deck (see SPREAD_DECK above), applied here
+ * regardless of anything a client might send.
  */
 function drawSpread(spreadKey) {
   const spread = SPREADS[spreadKey];

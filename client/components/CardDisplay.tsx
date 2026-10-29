@@ -3,7 +3,7 @@ import CardImage from './CardImage';
 
 export default function CardDisplay({ cards }: { cards: DrawnCard[] }) {
   return (
-    <div className="card-row">
+    <div className={`card-row${cards.length === 1 ? ' card-row--single' : ''}`}>
       {cards.map((dc, i) => (
         <article
           className="tarot-card"

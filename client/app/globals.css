@@ -58,6 +58,7 @@
   --mint-deep: #5B9C7C;    /* mint borders / orbit accents */
   --image-placeholder: #E5DAC4;
   --image-placeholder-shine: #F8F2E5;
+  --content-width: 1120px;
   --radius: 3px;
   --serif: 'Fraunces', ui-serif, Georgia, serif;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -84,8 +85,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
-.container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
-.container--narrow { max-width: 720px; }
+.container { max-width: var(--content-width); margin: 0 auto; padding: 0 28px; }
+.container--narrow { max-width: var(--content-width); }
+.auth-form { width: 100%; max-width: 420px; margin: 0 auto; }
 
 /* ── Decorative flourish divider (screenshot-inspired "— About me —" style) ── */
 .divider-flourish { display: flex; align-items: center; gap: 12px; color: var(--parchment-dim); margin: 8px 0 22px; font-size: 13px; letter-spacing: 0.05em; }
@@ -120,7 +122,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 }
 .site-nav {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 28px; max-width: 1120px; margin: 0 auto;
+  padding: 18px 28px; max-width: var(--content-width); margin: 0 auto;
 }
 .brand { display: flex; align-items: center; flex-shrink: 0; }
 .brand-logo { display: block; flex-shrink: 0; object-fit: contain; }
@@ -218,16 +220,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 
 /* ── Card artwork ── */
 .card-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 180px));
-  gap: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
   justify-content: center;
-  align-items: start;
+  align-items: stretch;
   margin: 34px 0;
 }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 .tarot-card {
-  width: 100%; max-width: 190px; min-width: 0; justify-self: center;
+  width: 100%; max-width: 252px; min-width: 0; flex: 1 1 190px;
+  height: 560px;
   border-radius: 8px; border: 1px solid var(--hairline);
   background: var(--ink-panel);
   padding: 12px 12px 15px; display: flex; flex-direction: column; gap: 9px;
@@ -237,7 +240,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 .tarot-card:hover { transform: translateY(-4px); border-color: var(--gold); }
 .tarot-card .position { font-size: 11px; letter-spacing: 0.04em; color: var(--gold-bright); text-transform: uppercase; }
 .card-art-stage {
-  position: relative; width: 100%; overflow: hidden; isolation: isolate;
+  position: relative; width: 100%; height: 320px; flex-shrink: 0;
+  overflow: hidden; isolation: isolate;
   border: 1px solid var(--hairline); border-radius: 4px;
   background: var(--image-placeholder);
 }
@@ -275,9 +279,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 .tarot-card .name {
   font-family: var(--font-tarot); font-size: 17px; line-height: 1.25;
   letter-spacing: 0.01em; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  min-height: 2.5em; overflow: hidden;
 }
 .tarot-card .orientation { font-size: 12px; color: var(--parchment-dim); }
-.tarot-card .meaning { font-size: 13px; color: var(--parchment-dim); line-height: 1.4; margin-top: auto; }
+.tarot-card .meaning {
+  margin-top: auto; color: var(--parchment-dim); font-size: 13px; line-height: 1.4;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+  overflow: hidden;
+}
 
 /* ── Admin shell ── */
 .admin-layout {
@@ -356,6 +366,10 @@ table.data-table tr:hover td { background: var(--ink-panel-raised); }
   .workspace-header { gap: 14px; }
   .workspace-header .brand-logo--circular { --brand-logo-size: 58px; }
   .workspace-header h1 { font-size: 27px; }
-  .card-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; }
-  .tarot-card { padding: 9px 9px 12px; }
+  .card-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .card-row--single { grid-template-columns: minmax(0, 252px); }
+  .tarot-card { max-width: none; height: 500px; flex: none; padding: 9px 9px 12px; }
+  .card-art-stage { height: 260px; }
+  .tarot-card .name { font-size: 16px; }
 }
+

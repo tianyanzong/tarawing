@@ -1,6 +1,7 @@
 'use client';
-import { Suspense, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import type { DrawnCard } from '@/lib/types';
 import CardDisplay from '@/components/CardDisplay';
@@ -8,18 +9,24 @@ import ReportFlow from '@/components/ReportFlow';
 
 const DECKS = [
   { key: 'tarot', label: 'Tarot Cards', note: 'Deep, archetypal, psychological.' },
-  { key: 'lenormand', label: 'Lenormand Cards', note: 'Sharp, practical, read in pairs.' },
   { key: 'playing_cards', label: 'Playing Card Divination', note: 'Fast, grounded, good for yes/no.' },
 ];
 
 function TarotPageContent() {
+  const router = useRouter();
   const params = useSearchParams();
-  const initialDeck = params.get('deck') || 'tarot';
+  const requestedDeck = params.get('deck');
+  const retiredLenormandUrl = requestedDeck === 'lenormand';
+  const initialDeck = DECKS.some((deck) => deck.key === requestedDeck) ? requestedDeck! : 'tarot';
   const [deck, setDeck] = useState(initialDeck);
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; cards: DrawnCard[] } | null>(null);
+
+  useEffect(() => {
+    if (retiredLenormandUrl) router.replace('/spreads?type=lenormand_pair');
+  }, [retiredLenormandUrl, router]);
 
   async function draw() {
     setLoading(true); setError(null); setResult(null);
@@ -35,12 +42,16 @@ function TarotPageContent() {
     }
   }
 
+  if (retiredLenormandUrl) {
+    return <div className="container" style={{ paddingTop: 50 }}><p className="form-note">Opening the Lenormand Pair...</p></div>;
+  }
+
   return (
     <div className="container container--narrow" style={{ paddingTop: 50, paddingBottom: 70 }}>
       <h1 className="heading-tarot" style={{ fontSize: 34, marginBottom: 12 }}>Draw a card</h1>
       <p className="form-note" style={{ marginBottom: 30 }}>
         Choose a deck, optionally ask a question, then draw. This is a single-card free
-        draw — for a full layout, visit the <a href="/spreads/holy_triangle" style={{ color: 'var(--gold-bright)' }}>Sacred Layout Engine</a>.
+        draw — for a full layout, visit the <Link href="/spreads?type=holy_triangle" style={{ color: 'var(--gold-bright)' }}>Sacred Layout Engine</Link>.
       </p>
 
       <div className="form-field">

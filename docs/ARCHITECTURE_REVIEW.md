@@ -1,4 +1,4 @@
-# TaraWing Architecture Review
+# Tarawing Architecture Review
 
 Reviewed: 2026-10-26
 

@@ -29,26 +29,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container container--narrow" style={{ paddingTop: 60, paddingBottom: 80, maxWidth: 420 }}>
-      <h1 style={{ fontSize: 30, marginBottom: 24 }}>Sign in</h1>
-      <form onSubmit={submit}>
-        <div className="form-field">
-          <label>Email</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="form-field">
-          <label>Password</label>
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-      <p className="form-note" style={{ marginTop: 18 }}>
-        No account yet? <Link href="/register" style={{ color: 'var(--gold-bright)' }}>Create one</Link>.
-      </p>
-      <p className="form-note" style={{ marginTop: 8 }}>Demo account: demo@tarawing.app / demo2026</p>
+    <div className="container container--narrow" style={{ paddingTop: 60, paddingBottom: 80 }}>
+      <div className="auth-form">
+        <h1 style={{ fontSize: 30, marginBottom: 24 }}>Sign in</h1>
+        <form onSubmit={submit}>
+          <div className="form-field">
+            <label>Email</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Password</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p className="form-note" style={{ marginTop: 18 }}>
+          No account yet? <Link href="/register" style={{ color: 'var(--gold-bright)' }}>Create one</Link>.
+        </p>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
   "name": "tarawing",
   "private": true,
   "version": "1.0.0",
-  "description": "TaraWing — astrology, tarot, and sacred-geometry card spreads. Convenience root only; server/ and client/ are independent npm projects with their own node_modules and lockfiles.",
+  "description": "Tarawing — astrology, tarot, and sacred-geometry card spreads. Convenience root only; server/ and client/ are independent npm projects with their own node_modules and lockfiles.",
   "scripts": {
     "build": "npm run build --prefix server && npm run build --prefix client",
     "dev": "concurrently -n server,client -c blue,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\""

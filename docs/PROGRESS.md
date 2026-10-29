@@ -1,6 +1,6 @@
-# TaraWing — Development Progress
+# Tarawing — Development Progress
 
-Reference architecture: `tianyan` (Express + PostgreSQL + Angular). TaraWing
+Reference architecture: `tianyan` (Express + PostgreSQL + Angular). Tarawing
 reimplements its patterns (JWT auth, admin RBAC, orders/payment state
 machine, JSONB reports) for astrology/tarot, in English, with Next.js
 instead of Angular. Full plan below, batch by batch. Each batch is marked
@@ -528,6 +528,63 @@ promise. Corrected:
       database backup/migration caveats, and sandbox-payment limitations.
 - [x] Verified `cd server && npm run build` succeeds and the root build
       completes both backend validation and all 25 frontend pages.
+
+## Batch 23 — Crisp horizontal Logo tagline (DONE)
+- [x] Confirmed the production site already serves the `750w / q90` logo image.
+      The remaining blur came from the source image's tiny red banner text:
+      roughly 651x62 source pixels, displayed at about 167x16 CSS pixels.
+- [x] Replaced that raster tagline with a positioned HTML text overlay matching
+      the source banner geometry, using the exact red background and black text.
+      The main artwork remains the supplied WebP asset.
+- [x] Added desktop/mobile Playwright assertions for tagline visibility, text,
+      colors, font size, image resolution, and overflow.
+- [x] Documented post-deploy HTML verification and Cloudflare/CDN cache purge
+      requirements; the remote site must be redeployed before this local fix is
+      visible.
+
+## Batch 24 — Removed generated Logo tagline overlay (DONE)
+- [x] Removed `brand-logo-horizontal__tagline`, its positioning styles, red
+      background variable, and the related Playwright assertions.
+- [x] Restored the horizontal Logo to a single image so the user can supply the
+      revised Logo artwork manually without duplicate tagline content.
+
+## Batch 25 — Unified page content width (DONE)
+- [x] Introduced `--content-width: 1120px` as the shared width for page
+      containers, navigation, and footer content.
+- [x] Changed the former `container--narrow` width from 720px to the shared
+      1120px width and removed the 380px/420px inline limits on login, register,
+      and admin login pages.
+- [x] Added a Playwright regression test comparing actual navigation, main
+      content, and footer widths across representative public pages.
+
+## Batch 26 — Lenormand Pair and Sacred Layout link fix (DONE)
+- [x] Added `lenormand_pair` as the first Sacred Layout option with fixed
+      `Subject` and `Modifier` positions and a two-card Lenormand draw.
+- [x] Removed Lenormand from the single-card Tarot deck selector. The retired
+      `/tarot?deck=lenormand` URL redirects to
+      `/spreads?type=lenormand_pair`.
+- [x] Updated the homepage Oracle/Sacred Layout links so Lenormand appears only
+      under the Sacred Layout Engine.
+- [x] Fixed the Tarot page's Sacred Layout link from the obsolete
+      `/spreads/holy_triangle` path to `/spreads?type=holy_triangle`.
+- [x] Updated the demo seed from a single Lenormand reading to a two-card
+      Lenormand Pair and added server/browser regression tests for the layout,
+      redirect, images, and link target.
+
+## Batch 27 — Login form and dashboard logo cleanup (DONE)
+- [x] Removed the visible demo-account credentials from the `/login` page.
+- [x] Restored the login form itself to a centered 420px maximum width while
+      keeping the outer page container aligned with navigation and footer.
+- [x] Removed the circular Logo from the signed-in Dashboard workspace header.
+- [x] Updated browser tests to assert the original login width, absent demo
+      credentials, and absent Dashboard circular Logo.
+
+## Batch 28 — Brand casing and register form alignment (DONE)
+- [x] Standardized visible brand wording to `Tarawing` across frontend,
+      backend-generated text, metadata, package descriptions, and docs.
+- [x] Wrapped the register page in the same `.auth-form` container as login so
+      both forms use the same 420px width.
+- [x] Extended the browser regression test to compare login and register widths.
 
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)

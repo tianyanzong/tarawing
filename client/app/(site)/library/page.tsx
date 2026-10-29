@@ -15,7 +15,7 @@ export default function LibraryPage() {
   return (
     <div className="container container--narrow" style={{ paddingTop: 50, paddingBottom: 70 }}>
       <h1 style={{ fontSize: 34, marginBottom: 8 }}>Library</h1>
-      <p className="form-note" style={{ marginBottom: 30 }}>Short reads on how to interpret what TaraWing draws for you.</p>
+      <p className="form-note" style={{ marginBottom: 30 }}>Short reads on how to interpret what Tarawing draws for you.</p>
       {error && <p className="form-error">{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {articles?.map((a) => (

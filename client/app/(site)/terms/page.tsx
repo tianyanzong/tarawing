@@ -6,12 +6,12 @@ export default function TermsPage() {
 
       <div style={{ lineHeight: 1.75, color: 'var(--parchment-dim)', display: 'flex', flexDirection: 'column', gap: 22 }}>
         <section>
-          <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>1. What TaraWing is</h2>
-          <p>TaraWing provides astrology, tarot, and card-based readings for entertainment, reflection, and self-exploration. Readings are generated from astronomical calculations, traditional card meanings, and AI-written interpretation — they are not professional advice of any kind.</p>
+          <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>1. What Tarawing is</h2>
+          <p>Tarawing provides astrology, tarot, and card-based readings for entertainment, reflection, and self-exploration. Readings are generated from astronomical calculations, traditional card meanings, and AI-written interpretation — they are not professional advice of any kind.</p>
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>2. Not medical, legal, or financial advice</h2>
-          <p>Nothing on TaraWing is a substitute for advice from a qualified doctor, therapist, lawyer, or financial professional. Do not use a reading as the basis for a medical, legal, or financial decision. If you are in crisis, please contact a local emergency service or crisis line rather than relying on this site.</p>
+          <p>Nothing on Tarawing is a substitute for advice from a qualified doctor, therapist, lawyer, or financial professional. Do not use a reading as the basis for a medical, legal, or financial decision. If you are in crisis, please contact a local emergency service or crisis line rather than relying on this site.</p>
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>3. Accounts</h2>
@@ -23,7 +23,7 @@ export default function TermsPage() {
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>5. Acceptable use</h2>
-          <p>Don't use TaraWing to harass, defraud, or make decisions on behalf of someone else without their knowledge. Don't attempt to scrape, resell, or automate bulk access to readings or card/chart data without permission.</p>
+          <p>Don't use Tarawing to harass, defraud, or make decisions on behalf of someone else without their knowledge. Don't attempt to scrape, resell, or automate bulk access to readings or card/chart data without permission.</p>
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>6. Changes</h2>

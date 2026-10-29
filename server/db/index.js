@@ -1,8 +1,8 @@
 /**
- * server/db/index.js — PostgreSQL schema v1 for TaraWing.
+ * server/db/index.js — PostgreSQL schema v1 for Tarawing.
  *
  * Single `readings` table (JSONB input/result) replaces the reference
- * project's eight per-tool subtables — TaraWing's nine tools all share the
+ * project's eight per-tool subtables — Tarawing's nine tools all share the
  * same shape (input → basic result → detailed result → optional AI reading),
  * so one flexible table is a better fit than eight near-identical ones.
  */
@@ -15,6 +15,9 @@ const { FAQ_SEED, ARTICLE_SEED } = require('./seed-data');
 const {
   DEMO_USER, DEMO_READINGS, DEMO_ORDERS, DEMO_NOTIFICATIONS, DEMO_CONSULTATIONS,
 } = require('./demo-seed-data');
+
+const BRAND_NAME = 'Tarawing';
+const LEGACY_BRAND_NAME = ['Tara', 'Wing'].join('');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost/tarawing',
@@ -92,7 +95,7 @@ async function initSchema(database = db) {
     updated_at   TEXT NOT NULL
   )`);
 
-  // type: astrology_natal | tarot | lenormand | playing_cards |
+  // type: astrology_natal | tarot | playing_cards | lenormand_pair |
   //       holy_triangle | gypsy_cross | hexagram | solomon_star | seven_planets
   // Report pipeline, free -> paid -> paid:
   //   simple_report       — free, generated on demand by a deterministic
@@ -223,6 +226,8 @@ async function ensureSuperAdmin(database = db) {
 }
 
 async function seedDemoData(database = db) {
+  await database.run('DELETE FROM readings WHERE id=$1', ['demo_rd_lenormand_crossroad']);
+
   let user = await database.one('SELECT id FROM users WHERE email=$1', [DEMO_USER.email]);
   if (!user) {
     const hash = await bcrypt.hash(DEMO_USER.password, 10);
@@ -311,14 +316,24 @@ async function seedArticles(database = db) {
 }
 
 async function seedSettings(database = db) {
-  const existing = await database.one(`SELECT key FROM settings WHERE key='site'`);
-  if (existing) return;
+  const existing = await database.one(`SELECT value FROM settings WHERE key='site'`);
+  if (existing) {
+    const normalized = JSON.stringify(existing.value).replaceAll(LEGACY_BRAND_NAME, BRAND_NAME);
+    if (normalized !== JSON.stringify(existing.value)) {
+      await database.run(
+        `UPDATE settings SET value=$1, updated_at=$2 WHERE key='site'`,
+        [normalized, now()],
+      );
+      logger.info('Updated legacy site branding');
+    }
+    return;
+  }
   await database.run(`INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2)`, [
     JSON.stringify({
-      siteName: 'TaraWing',
+      siteName: BRAND_NAME,
       tagline: 'Read the Cosmos. Find Your Path.',
       donationEnabled: true,
-      donationMessage: 'If this reading resonated with you, TaraWing runs on free will and free coffee. Any support keeps the lights (and the stars) on.',
+      donationMessage: 'If this reading resonated with you, Tarawing runs on free will and free coffee. Any support keeps the lights (and the stars) on.',
       supportEmail: 'support@tarawing.app',
       // Per-category pricing (cents) for the two paid report tiers.
       // Categories: tarot (single draws), astrology (natal chart + seven
@@ -341,6 +356,21 @@ async function seedSettings(database = db) {
   logger.info('Settings seeded');
 }
 
+async function normalizeBrandText(database = db) {
+  for (const table of ['faq', 'articles', 'notifications']) {
+    const columns = table === 'faq' ? ['question', 'answer']
+      : table === 'articles' ? ['title', 'body']
+        : ['message'];
+    const assignments = columns.map((column) => `${column}=REPLACE(${column},$1,$2)`).join(',');
+    const predicate = columns.map((column) => `POSITION($1 IN ${column}) > 0`).join(' OR ');
+    await database.run(
+      `UPDATE ${table} SET ${assignments} WHERE ${predicate}`,
+      [LEGACY_BRAND_NAME, BRAND_NAME],
+    );
+  }
+}
+
 module.exports = {
-  db, closeDb, dropAll, initSchema, ensureSuperAdmin, seedDemoData, seedFaq, seedArticles, seedSettings, id, now,
+  db, closeDb, dropAll, initSchema, ensureSuperAdmin, seedDemoData, seedFaq,
+  seedArticles, seedSettings, normalizeBrandText, id, now,
 };

@@ -26,7 +26,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="admin-brand">
           <BrandLogo variant="square" priority />
           <div>
-            <div className="admin-brand__title">TaraWing Admin</div>
+            <div className="admin-brand__title">Tarawing Admin</div>
             <div className="form-note">{admin?.username} · {admin?.role}</div>
           </div>
         </div>

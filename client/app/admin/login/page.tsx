@@ -27,9 +27,9 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="container container--narrow" style={{ paddingTop: 90, paddingBottom: 80, maxWidth: 380 }}>
+    <div className="container container--narrow" style={{ paddingTop: 90, paddingBottom: 80 }}>
       <h1 style={{ fontSize: 26, marginBottom: 6 }}>Admin sign in</h1>
-      <p className="form-note" style={{ marginBottom: 26 }}>TaraWing internal console.</p>
+      <p className="form-note" style={{ marginBottom: 26 }}>Tarawing internal console.</p>
       <form onSubmit={submit}>
         <div className="form-field">
           <label>Username</label>

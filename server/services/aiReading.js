@@ -13,7 +13,7 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 
 function buildPrompt({ type, question, cards, chart }) {
   const lines = [];
-  lines.push(`You are a warm, insightful diviner writing a personalized ${type.replace(/_/g, ' ')} reading for TaraWing, an astrology/tarot site.`);
+  lines.push(`You are a warm, insightful diviner writing a personalized ${type.replace(/_/g, ' ')} reading for Tarawing, an astrology/tarot site.`);
   if (question) lines.push(`The querent's question: "${question}"`);
   if (cards && cards.length) {
     lines.push('Cards drawn:');

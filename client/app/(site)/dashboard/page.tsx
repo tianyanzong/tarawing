@@ -5,7 +5,6 @@ import { api, ApiError } from '@/lib/api';
 import { useUserAuth } from '@/lib/auth';
 import type { CursorPage, ReadingSummary } from '@/lib/types';
 import AccountSettings from '@/components/AccountSettings';
-import BrandLogo from '@/components/BrandLogo';
 
 export default function DashboardPage() {
   const { status, error: authError, refresh } = useUserAuth();
@@ -61,7 +60,6 @@ export default function DashboardPage() {
   return (
     <div className="container" style={{ paddingTop: 50, paddingBottom: 70 }}>
       <header className="workspace-header">
-        <BrandLogo variant="circular" priority />
         <div>
           <p className="workspace-header__eyebrow">Your workspace</p>
           <h1>Your dashboard</h1>

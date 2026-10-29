@@ -17,7 +17,7 @@ const { ZODIAC_TRAITS, elementPairNote } = require('../data/zodiacTraits');
 
 const CARD_TYPES = new Set([
   'tarot', 'lenormand', 'playing_cards',
-  'holy_triangle', 'gypsy_cross', 'hexagram', 'solomon_star', 'seven_planets',
+  'lenormand_pair', 'holy_triangle', 'gypsy_cross', 'hexagram', 'solomon_star', 'seven_planets',
 ]);
 
 function cardLine(dc) {

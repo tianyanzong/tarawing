@@ -2,7 +2,7 @@
 const { z } = require('zod');
 
 const READING_TYPES = [
-  'astrology_natal', 'tarot', 'lenormand', 'playing_cards',
+  'astrology_natal', 'tarot', 'playing_cards', 'lenormand_pair',
   'holy_triangle', 'gypsy_cross', 'hexagram', 'solomon_star', 'seven_planets',
 ];
 
@@ -40,7 +40,7 @@ const S = {
     type: z.enum(READING_TYPES),
     question: z.string().max(500).optional(),
     // Note: no `deck` field. Single-card draws use `type` itself as the
-    // deck name ('tarot'/'lenormand'/'playing_cards'); Sacred Layout
+    // deck name ('tarot'/'playing_cards'); Sacred Layout
     // spreads each have exactly one correct deck, enforced server-side in
     // cardService.SPREAD_DECK — never client-selectable.
     // Astrology natal chart

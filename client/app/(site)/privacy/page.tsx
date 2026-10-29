@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>Payments</h2>
-          <p>In this build, payments run through a local sandbox for development and testing — no real card details are collected or transmitted. A production deployment using a real payment processor would route card details directly to that processor; TaraWing itself never stores full card numbers.</p>
+          <p>In this build, payments run through a local sandbox for development and testing — no real card details are collected or transmitted. A production deployment using a real payment processor would route card details directly to that processor; Tarawing itself never stores full card numbers.</p>
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>Your controls</h2>

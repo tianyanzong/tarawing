@@ -30,29 +30,31 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="container container--narrow" style={{ paddingTop: 60, paddingBottom: 80, maxWidth: 420 }}>
-      <h1 style={{ fontSize: 30, marginBottom: 24 }}>Create your account</h1>
-      <form onSubmit={submit}>
-        <div className="form-field">
-          <label>Name</label>
-          <input required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="form-field">
-          <label>Email</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="form-field">
-          <label>Password (min. 6 characters)</label>
-          <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
-          {loading ? 'Creating…' : 'Create account'}
-        </button>
-      </form>
-      <p className="form-note" style={{ marginTop: 18 }}>
-        Already have an account? <Link href="/login" style={{ color: 'var(--gold-bright)' }}>Sign in</Link>.
-      </p>
+    <div className="container container--narrow" style={{ paddingTop: 60, paddingBottom: 80 }}>
+      <div className="auth-form">
+        <h1 style={{ fontSize: 30, marginBottom: 24 }}>Create your account</h1>
+        <form onSubmit={submit}>
+          <div className="form-field">
+            <label>Name</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Email</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Password (min. 6 characters)</label>
+            <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+            {loading ? 'Creating…' : 'Create account'}
+          </button>
+        </form>
+        <p className="form-note" style={{ marginTop: 18 }}>
+          Already have an account? <Link href="/login" style={{ color: 'var(--gold-bright)' }}>Sign in</Link>.
+        </p>
+      </div>
     </div>
   );
 }

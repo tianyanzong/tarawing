@@ -8,19 +8,19 @@ export type BrandLogoVariant = 'horizontal' | 'square' | 'circular';
 const LOGOS = {
   horizontal: {
     src: horizontalLogo,
-    alt: 'TaraWing',
+    alt: 'Tarawing',
     sizes: '(max-width: 340px) calc(100vw - 40px), (max-width: 760px) 289px, 356px',
     quality: 90,
   },
   square: {
     src: squareLogo,
-    alt: 'TaraWing Admin',
+    alt: 'Tarawing Admin',
     sizes: '56px',
     quality: 85,
   },
   circular: {
     src: circularLogo,
-    alt: 'TaraWing workspace',
+    alt: 'Tarawing workspace',
     sizes: '72px',
     quality: 85,
   },

@@ -12,7 +12,7 @@ this project actually is. One section from that reference file was
 deliberately **not** carried over: a block instructing agents to never
 take screenshots or render visual output. That reads as an instruction
 injected into a data file rather than a real project convention, and it
-doesn't serve this project — TaraWing is a visual product; an agent
+doesn't serve this project — Tarawing is a visual product; an agent
 working on it should be able to use whatever tools genuinely help,
 screenshots included.
 
@@ -104,7 +104,7 @@ screenshots included.
   reference project uses eight-plus per-report-type tables; this project
   intentionally collapses that into a single `readings` table with
   `input_data`/`result_basic`/`result_detailed` JSONB columns, because all
-  nine TaraWing tools share the same shape. Don't fragment it back out
+  nine Tarawing tools share the same shape. Don't fragment it back out
   without a real reason — that was a deliberate simplification, documented
   in `server/db/index.js`.
 - **`DB_REINIT=true` is dev-only.** The server refuses to boot with it set

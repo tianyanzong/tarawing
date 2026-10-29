@@ -6,10 +6,13 @@ import type { SpreadResult } from '@/lib/types';
 import CardDisplay from '@/components/CardDisplay';
 import ReportFlow from '@/components/ReportFlow';
 
-// Order matches the request: Holy Triangle, Gypsy Cross, Hexagram, Star of
-// Solomon. Deck is fixed per spread (enforced server-side too, in
-// cardService.SPREAD_DECK) — there is deliberately no deck selector here.
+// Lenormand Pair is first, followed by the geometry-based spreads. Deck is
+// fixed per spread (enforced server-side in cardService.SPREAD_DECK).
 const SPREAD_OPTIONS = [
+  {
+    key: 'lenormand_pair', label: 'Lenormand Pair', count: 2, deckLabel: 'Lenormand cards',
+    blurb: 'A two-card Lenormand line: the first card establishes the subject, and the second modifies it. Best for practical, concrete questions about what is happening and what changes it.',
+  },
   {
     key: 'holy_triangle', label: 'Holy Triangle', count: 3, deckLabel: 'Tarot cards',
     blurb: 'Past, Present, Future — a fast, general-purpose read for when you want a quick, clear answer rather than a deep dive.',
@@ -32,7 +35,7 @@ type SpreadKey = typeof SPREAD_OPTIONS[number]['key'];
 
 function SpreadsPageContent() {
   const params = useSearchParams();
-  const initial = SPREAD_OPTIONS.find((s) => s.key === params.get('type'))?.key ?? 'holy_triangle';
+  const initial = SPREAD_OPTIONS.find((s) => s.key === params.get('type'))?.key ?? SPREAD_OPTIONS[0].key;
   const [spreadKey, setSpreadKey] = useState<SpreadKey>(initial);
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,7 +68,7 @@ function SpreadsPageContent() {
     <div className="container container--narrow" style={{ paddingTop: 50, paddingBottom: 70 }}>
       <h1 className="heading-tarot" style={{ fontSize: 34, marginBottom: 8 }}>The Sacred Layout Engine</h1>
       <p className="form-note" style={{ marginBottom: 30 }}>
-        Geometry-based spreads, dealt into fixed positions. Pick a layout below.
+        Two-card readings and geometry-based spreads, dealt into fixed positions. Pick a layout below.
       </p>
 
       <div className="form-field">

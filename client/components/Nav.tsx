@@ -20,7 +20,7 @@ export default function Nav() {
   return (
     <div className="site-nav-outer">
       <nav className="site-nav">
-        <Link href="/" className="brand" aria-label="TaraWing home">
+        <Link href="/" className="brand" aria-label="Tarawing home">
           <BrandLogo variant="horizontal" priority />
         </Link>
         <div className="nav-links">

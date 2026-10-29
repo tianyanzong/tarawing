@@ -16,7 +16,9 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   }
 
   const { Client } = require('pg');
-  const { initSchema, seedDemoData } = require('../db');
+  const {
+    initSchema, normalizeBrandText, seedArticles, seedDemoData, seedFaq, seedSettings,
+  } = require('../db');
   const {
     listAdminOrders, listAdminReadings, listAdminUsers, listUserReadings,
   } = require('../repositories/lists');
@@ -48,6 +50,22 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   }
   await seedDemoData(database);
   await seedDemoData(database);
+  await seedSettings(database);
+  await seedFaq(database);
+  await seedArticles(database);
+
+  const legacyBrand = ['Tara', 'Wing'].join('');
+  await database.run(
+    `INSERT INTO faq (id,question,answer,category,sort_order,published,created_at)
+     VALUES ('legacy_brand_faq',$1,'Legacy row','general',999,true,$2)`,
+    [`${legacyBrand} legacy question`, '2026-10-29T00:00:00.000Z'],
+  );
+  await normalizeBrandText(database);
+
+  const settings = await database.one(`SELECT value FROM settings WHERE key='site'`);
+  assert.equal(settings.value.siteName, 'Tarawing');
+  const normalizedFaq = await database.one('SELECT question FROM faq WHERE id=$1', ['legacy_brand_faq']);
+  assert.equal(normalizedFaq.question, 'Tarawing legacy question');
 
   const user = await database.one('SELECT * FROM users WHERE email=$1', ['demo@tarawing.app']);
   assert.ok(user);
@@ -61,6 +79,14 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   assert.equal(stableReading.status, 'detail_unlocked');
   assert.ok(stableReading.detailed_report);
   assert.ok(stableReading.deep_insights_report);
+
+  const lenormandPair = await database.one('SELECT * FROM readings WHERE id=$1', ['demo_rd_lenormand_pair']);
+  assert.equal(lenormandPair.type, 'lenormand_pair');
+  assert.equal(lenormandPair.result_basic.cards.length, 2);
+  assert.deepEqual(
+    lenormandPair.result_basic.cards.map((entry) => entry.position),
+    ['Subject', 'Modifier'],
+  );
 
   const firstPage = await listUserReadings(database, user.id, 2, null);
   assert.equal(firstPage.items.length, 2);

@@ -272,6 +272,76 @@ test('admin orders show owner email and verification controls', async ({ page })
   await expect(page.getByRole('button', { name: 'Reject payment' }).first()).toBeVisible();
 });
 
+test('QR payment dialog keeps Deep Insights disabled until detail payment is verified', async ({ page }) => {
+  await useUserSession(page);
+  await page.route('**/api/readings/rd_payment_preview', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: {
+        id: 'rd_payment_preview',
+        type: 'tarot',
+        category: 'tarot',
+        question: 'How should I proceed?',
+        status: 'detail_unpaid',
+        createdAt: '2026-10-30T10:00:00.000Z',
+        owned: true,
+        resultBasic: { deck: 'tarot', cards: [] },
+        simpleReport: 'A free simple report.',
+        detailedUnlocked: true,
+        detailedPaid: false,
+        detailedReport: 'The detailed report remains available after skipping payment.',
+        detailPayment: {
+          orderId: 'ord_payment_preview',
+          orderStatus: 'pending',
+          amountCents: 299,
+        },
+        deepInsights: {
+          ordered: false,
+          paid: false,
+          ready: false,
+          pending: false,
+          submitted: false,
+          report: null,
+          orderId: null,
+          orderStatus: null,
+        },
+        pricing: { detailCents: 299, deepInsightsCents: 499 },
+      },
+    }),
+  }));
+  await page.route('**/api/payment-methods', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [
+        {
+          id: 'pm_paypal',
+          name: 'PayPal',
+          qrImage: 'data:image/png;base64,iVBORw0KGgo=',
+          order: 0,
+        },
+        {
+          id: 'pm_stripe',
+          name: 'Stripe',
+          qrImage: 'data:image/png;base64,iVBORw0KGgo=',
+          order: 1,
+        },
+      ],
+    }),
+  }));
+
+  await page.goto('/readings/rd_payment_preview');
+
+  await expect(page.getByText('The detailed report remains available after skipping payment.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Get Deep Insights Report/ })).toBeDisabled();
+  await page.getByRole('button', { name: /Pay detailed report/ }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByAltText('PayPal QR code')).toBeVisible();
+  await expect(page.getByAltText('Stripe QR code')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip payment and view report' })).toBeVisible();
+});
+
 test('tarot draw renders loaded image artwork instead of generated placeholder art', async ({ page }) => {
   await page.route('**/api/readings', (route) => route.fulfill({
     status: 201,

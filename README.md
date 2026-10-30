@@ -375,6 +375,12 @@ name/email, change password — the server verifies the current password via
 bcrypt before allowing a change). The nav shows a user-icon avatar + Logout
 button once signed in, replacing the "Sign in" link.
 
+Report payment dialogs show the enabled QR payment methods. Detailed reports
+can be opened without paying and remain `detail_unpaid`; a submitted payment
+becomes `detail_tobepaid` until an admin verifies it as `detail_paid`. Deep
+Insights remains visible but disabled until that verification, and its own
+payment must also be verified before AI or manual generation.
+
 ## Admin portal
 
 `/admin/login` → `/admin` (Overview, Users, Orders, Readings, Deep Insights

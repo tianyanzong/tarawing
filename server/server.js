@@ -374,6 +374,43 @@ app.post('/api/readings/:id/simple-report', optAuth, ah(async (req, res) => {
   res.json({ data: { simpleReport: text, saved: false } });
 }));
 
+app.post('/api/readings/:id/detail/skip-payment', requireActive, ah(async (req, res) => {
+  const r = await claimAndFetchReading(req.params.id, req.user.id);
+  if (!r) return res.status(404).json({ error: 'Reading not found.' });
+  const category = categoryOf(r.type);
+  if (!category) return res.status(400).json({ error: 'This reading type has no detailed report.' });
+
+  const t = now();
+  const existingOrder = await db.one(
+    `SELECT id,status FROM orders
+     WHERE reading_id=$1 AND product_code=$2
+     ORDER BY created_at DESC LIMIT 1`,
+    [r.id, `detail_${category}`],
+  );
+
+  if (!existingOrder) {
+    const amountCents = await resolvePriceCents(db, category, 'detail');
+    await db.run(
+      `INSERT INTO orders (id,user_id,reading_id,product_code,amount_cents,currency,status,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,'USD','pending',$6,$6)`,
+      [id('ord'), req.user.id, r.id, `detail_${category}`, amountCents, t],
+    );
+  }
+
+  if (!['detail_tobepaid', 'detail_paid'].includes(r.status)) {
+    const detailedText = r.detailed_report || generateDetailedReport(r);
+    await db.run(
+      `UPDATE readings
+       SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
+       WHERE id=$4`,
+      [DETAIL_UNPAID, detailedText, t, r.id],
+    );
+  }
+
+  const updated = await db.one('SELECT * FROM readings WHERE id=$1', [r.id]);
+  res.json({ data: await buildReadingView(updated, req.user.id) });
+}));
+
 // Paid tier (detail): a nicely-typeset PDF of the detailed report.
 app.get('/api/readings/:id/export-pdf', requireActive, ah(async (req, res) => {
   const r = await claimAndFetchReading(req.params.id, req.user.id);

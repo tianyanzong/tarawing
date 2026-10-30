@@ -6,6 +6,13 @@ import { useUserAuth } from '@/lib/auth';
 import type { CursorPage, ReadingSummary } from '@/lib/types';
 import AccountSettings from '@/components/AccountSettings';
 
+const STATUS_CLASS: Record<string, string> = {
+  detail_unpaid: 'tag--sky',
+  detail_tobepaid: 'tag--gold',
+  detail_paid: 'tag--gold',
+  detail_unlocked: 'tag--gold',
+};
+
 export default function DashboardPage() {
   const { status, error: authError, refresh } = useUserAuth();
   const [tab, setTab] = useState<'readings' | 'account'>('readings');
@@ -86,7 +93,7 @@ export default function DashboardPage() {
                   <td>{r.type.replace(/_/g, ' ')}</td>
                   <td>{r.question || '—'}</td>
                   <td>
-                    <span className={`tag ${r.status === 'detail_unlocked' ? 'tag--gold' : ''}`}>{r.status}</span>
+                    <span className={`tag ${STATUS_CLASS[r.status] || ''}`}>{r.status}</span>
                     {r.deepInsightsReport && <span className="tag tag--gold" style={{ marginLeft: 6 }}>deep insights ready</span>}
                   </td>
                   <td>{new Date(r.createdAt).toLocaleDateString()}</td>

@@ -633,9 +633,23 @@ promise. Corrected:
 - [x] Added browser coverage for the four settings tabs and admin verification
       controls.
 
+## Batch 33 — Admin payments and AI providers, part 5: user QR payment flow (DONE)
+- [x] Added the customer QR payment dialog with enabled-method selection,
+      QR previews, automatic order reuse, and admin-verification messaging.
+- [x] Added skip-payment support that generates the detailed report and sets
+      `detail_unpaid`.
+- [x] Added Complete payment submission, setting detail orders and readings to
+      `detail_tobepaid` without granting paid access.
+- [x] Kept Deep Insights visible but disabled until the reading reaches
+      `detail_paid`; Deep Insights has no skip path.
+- [x] Added dashboard status styling for unpaid, pending-verification, and
+      paid detailed reports.
+- [x] Added browser coverage for the QR dialog and locked Deep Insights state.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
-- Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`
+- Payment: manual QR methods with admin verification only; no automatic bank
+  or payment-provider confirmation feed
 - PostgreSQL integration tests are skipped unless `TEST_DATABASE_URL` is set
   to a separate database whose name ends in `_test`
 - PDF output has not been visually inspected page-by-page

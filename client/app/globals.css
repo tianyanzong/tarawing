@@ -58,6 +58,8 @@
   --mint-deep: #5B9C7C;    /* mint borders / orbit accents */
   --image-placeholder: #E5DAC4;
   --image-placeholder-shine: #F8F2E5;
+  --overlay-backdrop: rgba(36, 29, 20, 0.62);
+  --dialog-shadow: rgba(36, 29, 20, 0.24);
   --content-width: 1120px;
   --radius: 3px;
   --serif: 'Fraunces', ui-serif, Georgia, serif;
@@ -345,6 +347,7 @@ table.data-table tr:hover td { background: var(--ink-panel-raised); }
 
 .tag { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; border: 1px solid var(--hairline); color: var(--parchment-dim); }
 .tag--gold { border-color: var(--gold); color: var(--gold-bright); }
+.tag--sky { border-color: var(--sky); color: var(--sky-bright); }
 
 /* Segmented tab control (admin content page, dashboard tabs) */
 .tab-btn { border: 1px solid var(--sky); color: var(--sky-bright); background: transparent; padding: 10px 18px; border-radius: var(--radius); font-size: 14px; }
@@ -382,6 +385,60 @@ table.data-table tr:hover td { background: var(--ink-panel-raised); }
   color: var(--parchment-dim); font-size: 12.5px; text-align: center;
   background: var(--ink);
 }
+.report-actions, .report-section-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.report-status-note { color: var(--gold-bright); font-size: 13px; }
+.deep-insights-flow { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── QR payment dialog ── */
+.payment-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--overlay-backdrop);
+}
+.payment-dialog {
+  width: min(760px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
+  background: var(--ink-panel); border: 1px solid var(--hairline);
+  border-radius: 8px; padding: 26px;
+  box-shadow: 0 18px 60px var(--dialog-shadow);
+}
+.payment-dialog__heading {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 18px; margin-bottom: 12px;
+}
+.payment-dialog__heading h2 { font-size: 24px; }
+.payment-dialog__amount {
+  font-family: var(--serif); font-size: 31px; color: var(--gold-bright);
+  margin-bottom: 10px;
+}
+.payment-method-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.payment-method-option {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 13px; border: 1px solid var(--hairline); border-radius: var(--radius);
+  color: var(--parchment); cursor: pointer;
+}
+.payment-method-option.is-selected { border-color: var(--gold); background: var(--ink-panel-raised); }
+.payment-method-option input { align-self: flex-start; }
+.payment-method-option span { font-weight: 600; }
+.payment-method-option img {
+  width: 100%; aspect-ratio: 1; object-fit: contain;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: var(--ink-panel); padding: 8px;
+}
+.payment-empty {
+  border: 1px dashed var(--hairline); padding: 22px;
+  color: var(--parchment-dim); font-size: 13.5px;
+}
+.payment-dialog__actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+  flex-wrap: wrap; margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
 
 /* ── Footer — coral band, screenshot-inspired ── */
 .site-footer { background: var(--coral); color: #fff; padding: 30px 0; font-size: 13.5px; }
@@ -404,6 +461,10 @@ table.data-table tr:hover td { background: var(--ink-panel-raised); }
   .settings-grid-wide { grid-column: auto; }
   .payment-method-item { grid-template-columns: 1fr; }
   .qr-preview { width: min(180px, 100%); height: auto; aspect-ratio: 1; }
+  .payment-dialog-backdrop { padding: 14px; align-items: flex-end; }
+  .payment-dialog { max-height: calc(100vh - 28px); padding: 20px; }
+  .payment-dialog__heading, .payment-dialog__actions { flex-direction: column; align-items: stretch; }
+  .payment-method-grid { grid-template-columns: 1fr; }
   .card-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .card-row--single { grid-template-columns: minmax(0, 252px); }
   .tarot-card { max-width: none; height: 500px; flex: none; padding: 9px 9px 12px; }

@@ -364,12 +364,14 @@ Every reading goes through three tiers, free to paid to paid:
    Written by a deterministic, non-AI algorithm (`server/services/reportService.js`)
    that combines the actual cards/positions or chart points into templated
    prose. No AI call, no cost.
-2. **Detailed report (optional payment)** — same algorithm, deeper (card-arc
-   synthesis, reversed-card notes, Sun/Moon element combinations). Users can
-   skip payment and keep the report with `detail_unpaid`, or submit a QR
-   payment for admin verification. The reading becomes `detail_tobepaid`
-   while waiting and `detail_paid` only after an admin verifies the order.
-   Accessible detailed reports can be exported as a PDF.
+2. **Detailed report (optional payment)** — deterministic guidance tailored to
+   the user's question, with a direct response, central pattern, card-by-card
+   or chart-point analysis, practical guidance, a seven-day plan, reflection
+   questions, and safety boundaries. Users can skip payment and keep the
+   report with `detail_unpaid`, or submit a QR payment for admin verification.
+   The reading becomes `detail_tobepaid` while waiting and `detail_paid` only
+   after an admin verifies the order. Accessible detailed reports can be
+   exported as a PDF.
 3. **Deep Insights report (paid, separate order, requires tier 2 first)** —
    a bespoke AI-written interpretation (`server/services/aiReading.js`).
    Depending on the admin's **AI mechanism** setting, this either generates
@@ -379,6 +381,12 @@ Every reading goes through three tiers, free to paid to paid:
 
 Pricing is per-category (tarot / astrology / spreads) and tier, set in
 **Admin → Settings → Report pricing** — never hardcoded in the client.
+
+Each new detailed report also generates an admin-only AI prompt containing the
+user question, reading data, authoritative report, requested Deep Insights
+structure, tone, length, and safety constraints. Admin Readings displays the
+prompt with a Copy action and uses it for Generate via AI. It is never included
+in owner-facing reading responses.
 
 ## User accounts
 

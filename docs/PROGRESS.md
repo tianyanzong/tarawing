@@ -696,6 +696,23 @@ promise. Corrected:
 - [x] Added browser coverage for SMTP settings, recovery pages, verification,
       and resend behavior.
 
+## Batch 38 — SMTP, email verification, and report prompts, part 4: detailed reports and AI prompts (DONE)
+- [x] Replaced the short deep-detail copy with structured, question-aware
+      guidance covering direct response, pattern, card/chart analysis,
+      practical steps, a seven-day plan, reflection questions, and safety
+      boundaries.
+- [x] Added deterministic question-intent guidance for relationships, career,
+      money, wellbeing, transitions, decisions, and general readings.
+- [x] Generated an admin-only AI prompt containing the question, reading data,
+      full detailed report, output requirements, and safety constraints.
+- [x] Stored prompts in `readings.ai_prompt` whenever detailed reports are
+      generated, with lazy backfill for older reports.
+- [x] Made automatic and admin-triggered Deep Insights generation use the saved
+      prompt.
+- [x] Added the read-only prompt panel and Copy action to Admin Readings.
+- [x] Added report/prompt unit coverage and browser coverage for admin prompt
+      visibility.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

@@ -173,6 +173,7 @@ export interface AdminReadingDetail extends AdminReadingSummary {
   simpleReport: string | null;
   detailedReport: string | null;
   deepInsightsReport: string | null;
+  aiPrompt?: string | null;
   adminNotes: string | null;
 }
 

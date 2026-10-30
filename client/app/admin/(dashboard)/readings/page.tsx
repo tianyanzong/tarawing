@@ -12,6 +12,7 @@ function AdminReadingsPageContent() {
   const [selected, setSelected] = useState<AdminReadingDetail | null>(null);
   const [notes, setNotes] = useState('');
   const [manualText, setManualText] = useState('');
+  const [promptCopied, setPromptCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ function AdminReadingsPageContent() {
     setSelected(r);
     setNotes(r.adminNotes || '');
     setManualText(r.deepInsightsReport || '');
+    setPromptCopied(false);
   }
 
   useEffect(() => {
@@ -74,6 +76,13 @@ function AdminReadingsPageContent() {
   async function saveNotes() {
     if (!selected) return;
     await api.post(`/api/admin/readings/${selected.id}/notes`, { notes }, true);
+  }
+
+  async function copyPrompt() {
+    if (!selected?.aiPrompt) return;
+    await navigator.clipboard.writeText(selected.aiPrompt);
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 1800);
   }
 
   return (
@@ -128,6 +137,23 @@ function AdminReadingsPageContent() {
             <div className="form-field">
               <label>Detailed report (paid, algorithmic)</label>
               <p className="form-note" style={{ whiteSpace: 'pre-wrap' }}>{selected.detailedReport}</p>
+            </div>
+          )}
+          {selected.aiPrompt && (
+            <div className="form-field">
+              <div className="report-section-heading">
+                <label htmlFor="admin-ai-prompt">AI generation prompt</label>
+                <button className="btn btn-ghost btn-compact" onClick={copyPrompt}>
+                  {promptCopied ? 'Copied' : 'Copy prompt'}
+                </button>
+              </div>
+              <textarea
+                id="admin-ai-prompt"
+                readOnly
+                rows={8}
+                value={selected.aiPrompt}
+                style={{ fontSize: 12.5 }}
+              />
             </div>
           )}
 

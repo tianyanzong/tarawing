@@ -27,7 +27,11 @@ const { S } = require('./schemas');
 const { drawCards, drawSpread } = require('./services/cardService');
 const { computeNatalChart } = require('./services/astrologyService');
 const { generateAiReading } = require('./services/aiReading');
-const { generateSimpleReport, generateDetailedReport } = require('./services/reportService');
+const {
+  buildDetailedAiPrompt,
+  generateDetailedReportBundle,
+  generateSimpleReport,
+} = require('./services/reportService');
 const { renderReportPdf } = require('./services/pdfService');
 const {
   MailNotConfiguredError,
@@ -100,6 +104,16 @@ async function sendUserVerificationEmail(user, settings, database = db) {
   return true;
 }
 
+function detailedReportBundleFor(reading) {
+  if (reading.detailed_report) {
+    return {
+      detailedReport: reading.detailed_report,
+      aiPrompt: reading.ai_prompt || buildDetailedAiPrompt(reading, reading.detailed_report),
+    };
+  }
+  return generateDetailedReportBundle(reading);
+}
+
 /**
  * Fetch a reading the given user is allowed to act on — either they
  * already own it, or it was an anonymous draw (user_id IS NULL, allowed
@@ -145,12 +159,21 @@ async function finishDeepInsightsPayment(order, userId, database = db) {
   }
 
   const basic = reading.result_basic;
+  let aiPrompt = reading.ai_prompt;
+  if (!aiPrompt && reading.detailed_report) {
+    aiPrompt = buildDetailedAiPrompt(reading, reading.detailed_report);
+    await database.run(
+      'UPDATE readings SET ai_prompt=$1, updated_at=$2 WHERE id=$3 AND ai_prompt IS NULL',
+      [aiPrompt, t, reading.id],
+    );
+  }
   const generated = await generateAiReading(
     {
       type: reading.type,
       question: reading.question,
       cards: basic?.cards,
       chart: reading.type === 'astrology_natal' ? basic : null,
+      prompt: aiPrompt,
     },
     { loadEndpoints: () => getAiEndpoints(database) },
   );
@@ -529,12 +552,13 @@ app.post('/api/readings/:id/detail/skip-payment', requireActive, ah(async (req, 
   }
 
   if (!['detail_tobepaid', 'detail_paid'].includes(r.status)) {
-    const detailedText = r.detailed_report || generateDetailedReport(r);
+    const detailed = detailedReportBundleFor(r);
     await db.run(
       `UPDATE readings
-       SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
-       WHERE id=$4`,
-      [DETAIL_UNPAID, detailedText, t, r.id],
+       SET status=$1, detailed_report=COALESCE(detailed_report,$2),
+           ai_prompt=COALESCE(ai_prompt,$3), updated_at=$4
+       WHERE id=$5`,
+      [DETAIL_UNPAID, detailed.detailedReport, detailed.aiPrompt, t, r.id],
     );
   }
 
@@ -654,12 +678,13 @@ app.post('/api/orders/:id/submit-payment', requireActive, validate(S.submitPayme
 
     if (o.reading_id && parsed.tier === 'detail') {
       const reading = await tx.one('SELECT * FROM readings WHERE id=$1', [o.reading_id]);
-      const detailedText = reading.detailed_report || generateDetailedReport(reading);
+      const detailed = detailedReportBundleFor(reading);
       await tx.run(
         `UPDATE readings
-         SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
-         WHERE id=$4`,
-        [DETAIL_TOBEPAID, detailedText, t, o.reading_id],
+         SET status=$1, detailed_report=COALESCE(detailed_report,$2),
+             ai_prompt=COALESCE(ai_prompt,$3), updated_at=$4
+         WHERE id=$5`,
+        [DETAIL_TOBEPAID, detailed.detailedReport, detailed.aiPrompt, t, o.reading_id],
       );
     }
 
@@ -853,12 +878,13 @@ app.post('/api/admin/orders/:id/verify-payment', requirePerm('orders'), ah(async
     if (!reading) throw new Error('Reading not found for verified order.');
 
     if (parsed.tier === 'detail') {
-      const detailedText = reading.detailed_report || generateDetailedReport(reading);
+      const detailed = detailedReportBundleFor(reading);
       await tx.run(
         `UPDATE readings
-         SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
-         WHERE id=$4`,
-        [DETAIL_PAID, detailedText, t, reading.id],
+         SET status=$1, detailed_report=COALESCE(detailed_report,$2),
+             ai_prompt=COALESCE(ai_prompt,$3), updated_at=$4
+         WHERE id=$5`,
+        [DETAIL_PAID, detailed.detailedReport, detailed.aiPrompt, t, reading.id],
       );
     } else if (!canGenerateDeepInsights(reading.status)) {
       throw new Error('Deep Insights cannot be verified before the detailed report is paid.');
@@ -951,6 +977,13 @@ app.get('/api/admin/readings/:id', requirePerm('readings'), ah(async (req, res) 
     [req.params.id],
   );
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
+  if (r.detailed_report && !r.ai_prompt) {
+    r.ai_prompt = buildDetailedAiPrompt(r, r.detailed_report);
+    await db.run(
+      'UPDATE readings SET ai_prompt=$1, updated_at=$2 WHERE id=$3 AND ai_prompt IS NULL',
+      [r.ai_prompt, now(), r.id],
+    );
+  }
   res.json({ data: r });
 }));
 // Admin queue: paid Deep Insights orders whose report hasn't been written
@@ -977,8 +1010,22 @@ app.post('/api/admin/readings/:id/deep-insights/generate-ai', requirePerm(['read
     return res.status(402).json({ error: 'A verified Deep Insights payment is required before generation.' });
   }
   const basic = r.result_basic;
+  let aiPrompt = r.ai_prompt;
+  if (!aiPrompt && r.detailed_report) {
+    aiPrompt = buildDetailedAiPrompt(r, r.detailed_report);
+    await db.run(
+      'UPDATE readings SET ai_prompt=$1, updated_at=$2 WHERE id=$3 AND ai_prompt IS NULL',
+      [aiPrompt, now(), r.id],
+    );
+  }
   const gen = await generateAiReading(
-    { type: r.type, question: r.question, cards: basic?.cards, chart: r.type === 'astrology_natal' ? basic : null },
+    {
+      type: r.type,
+      question: r.question,
+      cards: basic?.cards,
+      chart: r.type === 'astrology_natal' ? basic : null,
+      prompt: aiPrompt,
+    },
     { loadEndpoints: () => getAiEndpoints(db) },
   );
   if (!gen.ok) return res.status(502).json({ error: gen.error });

@@ -137,3 +137,28 @@ test('returns a redacted aggregate error when every provider fails', async () =>
   assert.match(result.error, /all enabled ai providers failed/i);
   assert.equal(result.error.includes('sk-test-secret'), false);
 });
+
+test('uses an explicit stored prompt instead of rebuilding it from reading data', async () => {
+  let requestBody;
+  const result = await generateAiReading(
+    {
+      type: 'tarot',
+      question: 'Original question',
+      cards: [],
+      prompt: 'Use this stored admin prompt verbatim.',
+    },
+    {
+      fetchImpl: async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+          choices: [{ message: { content: 'Prompt-specific answer' } }],
+        }), { status: 200 });
+      },
+      logger: silentLogger,
+      loadEndpoints: async () => [endpoint({ id: 'prompt-provider' })],
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(requestBody.messages[0].content, 'Use this stored admin prompt verbatim.');
+});

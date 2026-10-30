@@ -169,6 +169,7 @@ async function useAdminSession(page: Page) {
         simpleReport: null,
         detailedReport: null,
         deepInsightsReport: null,
+        aiPrompt: 'Use this admin-only prompt to generate a deeper reading.',
         adminNotes: null,
       },
     }),
@@ -196,6 +197,7 @@ test('query-param routes prerender and expose their page controls', async ({ pag
   await useAdminSession(page);
   await page.goto('/admin/readings?id=rd_preview');
   await expect(page.getByRole('heading', { name: 'Readings', level: 1 })).toBeVisible();
+  await expect(page.getByLabel('AI generation prompt')).toHaveValue(/admin-only prompt/);
 });
 
 test('user auth provider restores the session without the dashboard circular logo', async ({ page }) => {

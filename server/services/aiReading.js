@@ -113,7 +113,9 @@ async function generateAiReading(payload, dependencies = {}) {
   const loadEndpoints = dependencies.loadEndpoints || getAiEndpoints;
   const fetchImpl = dependencies.fetchImpl || global.fetch;
   const log = dependencies.logger || logger;
-  const prompt = buildPrompt(payload);
+  const prompt = typeof payload.prompt === 'string' && payload.prompt.trim()
+    ? payload.prompt.trim()
+    : buildPrompt(payload);
 
   let endpoints;
   try {

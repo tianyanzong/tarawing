@@ -133,6 +133,11 @@ single-use email tokens for verification and password recovery. SMTP settings
 and their password are stored with the existing secret-protection rules; the
 mail flow and settings UI are added in the following batches.
 
+Password recovery and email-verification API flows are now implemented. When
+mail is enabled, registration and resend requests send one-time links; when
+mandatory verification is enabled, unverified users cannot sign in. The UI for
+these flows and the SMTP settings tab are added in the next batch.
+
 ## API DTOs
 
 PostgreSQL rows remain `snake_case`. All JSON API responses pass through

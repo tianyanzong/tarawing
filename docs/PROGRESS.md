@@ -671,6 +671,18 @@ promise. Corrected:
 - [x] Added unit and PostgreSQL integration coverage for the migration, SMTP
       secret handling, and auth-token storage.
 
+## Batch 36 — SMTP, email verification, and report prompts, part 2: mail and auth routes (DONE)
+- [x] Added Nodemailer transport creation with TLS minimums, SMTP auth, file/URL
+      access disabled, clean sender headers, and HTML escaping.
+- [x] Added registration verification mail, resend verification, email
+      verification, forgot-password, and reset-password routes.
+- [x] Added the mandatory-email-verification login gate and default-off policy.
+- [x] Added the admin SMTP test-email route and a guard that requires complete
+      SMTP before mandatory verification can be enabled.
+- [x] Marked email changes unverified and sent a fresh verification link.
+- [x] Added mail-template tests and upgraded Nodemailer to the patched 10.x
+      release after the initial install triggered dependency advisories.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

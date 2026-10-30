@@ -30,6 +30,16 @@ const { generateAiReading } = require('./services/aiReading');
 const { generateSimpleReport, generateDetailedReport } = require('./services/reportService');
 const { renderReportPdf } = require('./services/pdfService');
 const {
+  MailNotConfiguredError,
+  sendPasswordResetEmail,
+  sendTestEmail,
+  sendVerificationEmail,
+} = require('./services/mailService');
+const {
+  consumeAuthToken,
+  createAuthToken,
+} = require('./services/authTokenService');
+const {
   resolvePriceCents, getAiEndpoints, getAiMechanismSettings, getPaymentMethodById,
   parseProductCode,
 } = require('./services/paymentService');
@@ -77,6 +87,18 @@ app.use(httpLogger);
 app.use(dtoResponse);
 
 const ah = (fn) => (req, res, next) => fn(req, res, next).catch(next); // async handler wrapper
+
+async function getSiteSettings(database = db) {
+  const row = await database.one("SELECT value FROM settings WHERE key='site'");
+  return row?.value || {};
+}
+
+async function sendUserVerificationEmail(user, settings, database = db) {
+  if (!settings?.smtp?.enabled || !settings.smtp.host || !settings.smtp.fromEmail) return false;
+  const { token } = await createAuthToken(database, user.id, 'email_verification');
+  await sendVerificationEmail(settings.smtp, user.email, token);
+  return true;
+}
 
 /**
  * Fetch a reading the given user is allowed to act on — either they
@@ -164,15 +186,43 @@ async function finishDeepInsightsPayment(order, userId, database = db) {
 // ══════════════════════════ AUTH ══════════════════════════
 app.post('/api/auth/register', authRateLimit, validate(S.register), ah(async (req, res) => {
   const { name, email, password } = req.body;
-  const existing = await db.one('SELECT id FROM users WHERE email=$1', [email.toLowerCase()]);
+  const normalizedEmail = email.toLowerCase();
+  const existing = await db.one('SELECT id FROM users WHERE email=$1', [normalizedEmail]);
   if (existing) return res.status(409).json({ error: 'An account with this email already exists.' });
   const hash = await bcrypt.hash(password, 10);
   const uid = id('usr');
   const t = now();
   await db.run('INSERT INTO users (id,name,email,password,role,created_at,updated_at) VALUES ($1,$2,$3,$4,\'normal\',$5,$5)',
-    [uid, name, email.toLowerCase(), hash, t]);
-  const user = await db.one('SELECT id,name,email,role,created_at FROM users WHERE id=$1', [uid]);
-  res.status(201).json({ data: { user, token: signUserToken(user) } });
+    [uid, name, normalizedEmail, hash, t]);
+  const user = await db.one(
+    'SELECT id,name,email,role,email_verified_at,created_at FROM users WHERE id=$1',
+    [uid],
+  );
+  const settings = await getSiteSettings();
+  let verificationEmailSent = false;
+  try {
+    verificationEmailSent = await sendUserVerificationEmail(user, settings);
+  } catch (err) {
+    logger.error('Registration verification email failed', { err, userId: user.id });
+  }
+
+  if (settings.requireEmailVerification === true) {
+    return res.status(201).json({
+      data: {
+        user,
+        verificationRequired: true,
+        verificationEmailSent,
+      },
+    });
+  }
+  res.status(201).json({
+    data: {
+      user,
+      token: signUserToken(user),
+      verificationRequired: false,
+      verificationEmailSent,
+    },
+  });
 }));
 
 app.post('/api/auth/login', authRateLimit, validate(S.login), ah(async (req, res) => {
@@ -180,6 +230,13 @@ app.post('/api/auth/login', authRateLimit, validate(S.login), ah(async (req, res
   const u = await db.one('SELECT * FROM users WHERE email=$1', [email.toLowerCase()]);
   if (!u || !(await bcrypt.compare(password, u.password))) return res.status(401).json({ error: 'Incorrect email or password.' });
   if (['banned_temp', 'banned_perm'].includes(u.role)) return res.status(403).json({ error: 'This account has been suspended.' });
+  const settings = await getSiteSettings();
+  if (settings.requireEmailVerification === true && !u.email_verified_at) {
+    return res.status(403).json({
+      error: 'Verify your email before signing in.',
+      details: { code: 'EMAIL_NOT_VERIFIED' },
+    });
+  }
   await db.run('UPDATE users SET last_active=$1 WHERE id=$2', [now(), u.id]);
   const { password: _pw, ...safe } = u;
   res.json({ data: { user: safe, token: signUserToken(u) } });
@@ -193,16 +250,32 @@ app.get('/api/auth/me', requireUser, ah(async (req, res) => {
 app.put('/api/auth/me', requireActive, validate(S.updateProfile), ah(async (req, res) => {
   const { name, email } = req.body;
   if (!name && !email) return res.status(400).json({ error: 'Nothing to update.' });
-  if (email && email.toLowerCase() !== req.user.email) {
-    const existing = await db.one('SELECT id FROM users WHERE email=$1 AND id<>$2', [email.toLowerCase(), req.user.id]);
+  const nextEmail = email ? email.toLowerCase() : null;
+  const emailChanged = !!nextEmail && nextEmail !== req.user.email;
+  if (emailChanged) {
+    const existing = await db.one('SELECT id FROM users WHERE email=$1 AND id<>$2', [nextEmail, req.user.id]);
     if (existing) return res.status(409).json({ error: 'That email is already in use by another account.' });
   }
   const t = now();
   await db.run(
-    'UPDATE users SET name=COALESCE($1,name), email=COALESCE($2,email), updated_at=$3 WHERE id=$4',
-    [name || null, email ? email.toLowerCase() : null, t, req.user.id]
+    `UPDATE users
+     SET name=COALESCE($1,name), email=COALESCE($2,email),
+         email_verified_at=CASE WHEN $2 IS NULL THEN email_verified_at ELSE NULL END,
+         updated_at=$3
+     WHERE id=$4`,
+    [name || null, nextEmail, t, req.user.id]
   );
-  const updated = await db.one('SELECT id,name,email,role,created_at FROM users WHERE id=$1', [req.user.id]);
+  const updated = await db.one(
+    'SELECT id,name,email,role,email_verified_at,created_at FROM users WHERE id=$1',
+    [req.user.id],
+  );
+  if (emailChanged) {
+    try {
+      await sendUserVerificationEmail(updated, await getSiteSettings());
+    } catch (err) {
+      logger.error('Email-change verification email failed', { err, userId: updated.id });
+    }
+  }
   res.json({ data: updated });
 }));
 
@@ -213,6 +286,61 @@ app.post('/api/auth/change-password', requireActive, validate(S.changePassword),
   const hash = await bcrypt.hash(newPassword, 10);
   await db.run('UPDATE users SET password=$1, updated_at=$2 WHERE id=$3', [hash, now(), req.user.id]);
   res.json({ data: { ok: true } });
+}));
+
+app.post('/api/auth/forgot-password', authRateLimit, validate(S.forgotPassword), ah(async (req, res) => {
+  const email = req.body.email.toLowerCase();
+  const user = await db.one('SELECT id,email FROM users WHERE email=$1', [email]);
+  const settings = await getSiteSettings();
+  if (user && settings.smtp?.enabled) {
+    try {
+      const { token } = await createAuthToken(db, user.id, 'password_reset');
+      await sendPasswordResetEmail(settings.smtp, user.email, token);
+    } catch (err) {
+      logger.error('Password-reset email failed', { err, userId: user.id });
+    }
+  }
+  res.json({ data: { ok: true, message: 'If that email is registered, a reset link has been sent.' } });
+}));
+
+app.post('/api/auth/reset-password', authRateLimit, validate(S.resetPassword), ah(async (req, res) => {
+  const user = await consumeAuthToken(db, req.body.token, 'password_reset');
+  if (!user) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+  const hash = await bcrypt.hash(req.body.newPassword, 10);
+  const t = now();
+  await db.run(
+    `UPDATE users
+     SET password=$1, email_verified_at=COALESCE(email_verified_at,$2), updated_at=$2
+     WHERE id=$3`,
+    [hash, t, user.id],
+  );
+  res.json({ data: { ok: true } });
+}));
+
+app.post('/api/auth/verify-email', validate(S.verifyEmail), ah(async (req, res) => {
+  const user = await consumeAuthToken(db, req.body.token, 'email_verification');
+  if (!user) return res.status(400).json({ error: 'This verification link is invalid or has expired.' });
+  await db.run(
+    'UPDATE users SET email_verified_at=COALESCE(email_verified_at,$1), updated_at=$1 WHERE id=$2',
+    [now(), user.id],
+  );
+  res.json({ data: { verified: true } });
+}));
+
+app.post('/api/auth/resend-verification', authRateLimit, validate(S.resendVerification), ah(async (req, res) => {
+  const email = req.body.email.toLowerCase();
+  const user = await db.one(
+    'SELECT id,name,email,role,email_verified_at,created_at FROM users WHERE email=$1',
+    [email],
+  );
+  if (user && !user.email_verified_at) {
+    try {
+      await sendUserVerificationEmail(user, await getSiteSettings());
+    } catch (err) {
+      logger.error('Resend verification email failed', { err, userId: user.id });
+    }
+  }
+  res.json({ data: { ok: true, message: 'If verification is still needed, a new email has been sent.' } });
 }));
 
 // ══════════════════════════ READINGS ══════════════════════════
@@ -922,11 +1050,31 @@ app.put('/api/admin/settings', requirePerm('settings'), validate(S.siteSettings)
   if (incoming.smtp) {
     next.smtp = mergeSmtpSettings(incoming.smtp, current.smtp || {});
   }
+  if (next.requireEmailVerification === true) {
+    if (!next.smtp?.enabled || !next.smtp.host || !next.smtp.fromEmail || !next.smtp.publicSiteUrl) {
+      return res.status(400).json({
+        error: 'Enable and complete SMTP settings before requiring email verification.',
+      });
+    }
+  }
 
   await db.run("INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2) ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2", [JSON.stringify(next), now()]);
   await db.run('INSERT INTO audit_logs (id,admin_id,admin_name,action,target,meta,created_at) VALUES ($1,$2,$3,\'settings.update\',\'site\',$4,$5)',
     [id('log'), req.admin.id, req.admin.username, JSON.stringify(auditSettings(next)), now()]);
   res.json({ data: { settings: settingsForAdmin(next) } });
+}));
+app.post('/api/admin/settings/smtp/test', requirePerm('settings'), validate(S.smtpTest), ah(async (req, res) => {
+  const settings = await getSiteSettings();
+  try {
+    await sendTestEmail(settings.smtp || {}, req.body.to);
+    res.json({ data: { sent: true } });
+  } catch (err) {
+    if (err instanceof MailNotConfiguredError) {
+      return res.status(400).json({ error: err.message });
+    }
+    logger.error('SMTP test email failed', { err });
+    res.status(502).json({ error: 'Could not connect to the SMTP server. Check the saved SMTP settings.' });
+  }
 }));
 app.get('/api/admin/audit-logs', requirePerm('settings'), ah(async (_req, res) => {
   const rows = await db.all('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200');

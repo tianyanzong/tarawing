@@ -150,7 +150,7 @@ read raw database column names.
 ## Tests
 
 ```bash
-# Server: DTO, pagination, demo seed, and PostgreSQL cursor queries
+# Server: DTOs, pagination, spreads, SMTP/auth/report units, and PostgreSQL
 cd server
 npm test
 

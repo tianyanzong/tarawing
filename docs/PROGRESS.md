@@ -732,6 +732,12 @@ promise. Corrected:
       (43/43 tests), server build, and root production build.
 - [x] Confirmed `npm audit --omit=dev` now reports zero vulnerabilities.
 
+## Batch 41 — Sacred Layout regression tests tracked on main (DONE)
+- [x] Added the existing `server/test/spreads.test.js` to version control.
+- [x] Preserved coverage for Lenormand Pair ordering, fixed deck selection, card
+      count, positions, and canonical Lenormand numbering.
+- [x] Ran the focused spread tests and the full server suite on `main`.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

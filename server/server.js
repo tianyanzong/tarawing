@@ -2,8 +2,8 @@
  * server/server.js — Tarawing API. Express + PostgreSQL.
  * Mirrors the route-and-permission architecture of the reference project
  * (tianyan) — JWT user auth, admin RBAC over permission domains, a JSONB
- * "readings" table standing in for its per-tool report subtables, and a
- * sandbox-first order/payment state machine — adapted to an
+ * "readings" table standing in for its per-tool report subtables, and an
+ * admin-verified order/payment state machine — adapted to an
  * astrology/tarot domain and written in English throughout.
  */
 'use strict';
@@ -69,7 +69,9 @@ if (process.env.NODE_ENV === 'production') {
 
 const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', credentials: true }));
-app.use(express.json({ limit: '1mb' }));
+// QR images are stored as validated data URLs in settings, so settings saves
+// need more room than normal JSON routes while remaining bounded.
+app.use(express.json({ limit: '3mb' }));
 app.use(httpLogger);
 app.use(dtoResponse);
 
@@ -543,9 +545,8 @@ app.post('/api/orders/:id/submit-payment', requireActive, validate(S.submitPayme
   res.json({ data: { ...updated, paymentMethod: method.name } });
 }));
 
-// TODO(live): real gateway webhook verification per channel.
 app.post('/api/payments/notify/:channel', ah(async (_req, res) => {
-  res.status(501).json({ error: `Live payment channel "${_req.params.channel}" is not configured. Use PAYMENT_MODE=sandbox in development.` });
+  res.status(501).json({ error: `Automatic payment confirmation for channel "${_req.params.channel}" is not configured. QR payments are verified manually in Admin > Orders.` });
 }));
 
 app.post('/api/orders/:id/refund', requireActive, ah(async (req, res) => {
@@ -825,7 +826,7 @@ app.get('/api/admin/readings/:id', requirePerm('readings'), ah(async (req, res) 
 }));
 // Admin queue: paid Deep Insights orders whose report hasn't been written
 // yet — either because aiMechanism.autoGenerateOnPayment is off, or a prior
-// auto-generation attempt failed (e.g. no ANTHROPIC_API_KEY configured).
+// auto-generation attempt failed because its configured AI providers failed.
 app.get('/api/admin/deep-insights-queue', requirePerm(['readings', 'orders']), ah(async (_req, res) => {
   const rows = await db.all(`
     SELECT o.id AS order_id, o.product_code, o.amount_cents, o.paid_at,

@@ -20,9 +20,9 @@ follows. `docs/PROGRESS.md` has the full batch-by-batch build log.
   Next.js/Nuxt recommendation, for the same SSR/SEO reasons it gives.
 - **Backend**: Node.js + Express 4 + PostgreSQL (`pg`), JWT auth (`jsonwebtoken`),
   password hashing (`bcryptjs`), validation (`zod`).
-- **AI readings**: calls the Anthropic Messages API directly from
-  `server/services/aiReading.js`.
-- **Payments**: sandbox-only in this build (see Limitations).
+- **AI readings**: calls admin-configured Anthropic, OpenAI, DeepSeek, or
+  OpenAI-compatible APIs through `server/services/aiReading.js`.
+- **Payments**: admin-managed QR methods with manual admin verification.
 
 ## Ports
 
@@ -47,7 +47,7 @@ tarawing/
 │   ├── middlewares/   auth (user JWT + admin JWT/RBAC), zod validation
 │   ├── schemas/       zod request schemas
 │   ├── data/          tarot/lenormand/playing-card decks, spread layouts
-│   ├── services/      card drawing, astrology calc, AI reading, sandbox payment
+│   ├── services/      card drawing, astrology, AI providers, QR payments
 │   ├── repositories/  shared cursor-paginated PostgreSQL queries
 │   └── utils/         structured logger, pagination, API DTO serialization
 └── client/            Next.js app
@@ -115,7 +115,6 @@ The ones that matter most:
 | `PORT` | Express API port; defaults to `3301` |
 | `JWT_SECRET`, `ADMIN_TOKEN` | **Must** be real random values in production — the server refuses to boot with placeholders when `NODE_ENV=production` |
 | `SETTINGS_ENCRYPTION_KEY` | Recommended dedicated key for encrypting AI provider credentials stored in PostgreSQL; falls back to `JWT_SECRET` if unset |
-| `PAYMENT_MODE` | `sandbox` (default) simulates instant payment success for dev/testing |
 | `DB_REINIT` | Defaults to `false`; set `true` only when intentionally wiping the development database |
 
 ### Admin-managed AI and payment configuration
@@ -291,9 +290,10 @@ curl -fsSI https://app.example.com/ | grep -i cache-control
 Hashed files under `/_next/static/` can be cached for long periods, but HTML
 documents should not be given multi-month shared-cache lifetimes.
 
-The current payment gateway is still sandbox-only and
-`ANTHROPIC_API_KEY` is required for automatic AI-generated Deep Insights.
-Do not advertise live payments or AI output until those integrations are
+Payments are QR-based and require an admin to verify incoming funds; the app
+does not automatically detect bank transfers. AI providers are configured in
+**Admin → Settings → AI mechanism**, not through environment variables. Do not
+advertise automatic payment confirmation or AI output until those settings are
 configured and tested in the production environment.
 
 ## Design
@@ -327,9 +327,10 @@ Until you do, the free Pirata One (Google Fonts) is what actually renders.
   and Saturn are not implemented** — `server/services/astrologyService.js`
   has a `TODO(planets)` comment marking where a full ephemeris implementation
   (e.g. VSOP87, or a library such as `astronomy-engine`) would need to be added.
-- **Payments**: only the sandbox gateway is implemented. `server/services/paymentService.js`
-  has `TODO(live)` markers for wiring up Stripe/PayPal — the order state
-  machine itself doesn't need to change, only the payment-intent/webhook handlers.
+- **Payments**: QR methods are displayed for customers, but there is no live
+  bank/payment-provider confirmation feed. An admin must verify every submitted
+  payment in Orders before the reading becomes `detail_paid` or Deep Insights
+  can be generated.
 - **Integration tests require configuration.** The PostgreSQL suite is skipped
   unless `TEST_DATABASE_URL` is set. The test database is protected by the
   `_test` name requirement and uses an isolated temporary schema.

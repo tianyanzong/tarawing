@@ -25,7 +25,9 @@ perspective. This file is the historical log of how it got here.
 - [x] `server/services/cardService.js` — crypto-secure shuffle & spread draw
 - [x] `server/services/astrologyService.js` — Sun/Moon/Ascendant via Meeus low-precision formulas
 - [x] `server/services/aiReading.js` — Anthropic API call, graceful degrade without key
-- [x] `server/services/paymentService.js` — sandbox payment simulation
+- [x] `server/services/paymentService.js` — pricing and payment helpers
+      (the original sandbox simulation was replaced by admin-verified QR
+      payments in Batch 34)
 - [x] `server/server.js` — full route set (auth, readings, orders, notifications, consultations, admin, content)
 - [x] `server/utils/logger.js`, `.env.example`, `package.json`
 - [x] Verified: `node --check` on all server files, deck sizes (78/36/52),
@@ -645,6 +647,17 @@ promise. Corrected:
 - [x] Added dashboard status styling for unpaid, pending-verification, and
       paid detailed reports.
 - [x] Added browser coverage for the QR dialog and locked Deep Insights state.
+
+## Batch 34 — Admin payments and AI providers, part 6: cleanup and release verification (DONE)
+- [x] Removed `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` from local and example
+      environment files; AI credentials are now managed only in admin settings.
+- [x] Added `SETTINGS_ENCRYPTION_KEY` as the recommended dedicated encryption
+      key, with `JWT_SECRET` fallback.
+- [x] Removed the unused sandbox signing/simulation code and updated stale
+      payment wording in API comments, privacy copy, README, and seed data.
+- [x] Documented that QR payment confirmation is manual and admin-verified.
+- [x] Ran backend tests/build, client type-check/unit tests/build, and the full
+      Playwright suite.
 
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)

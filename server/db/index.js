@@ -100,9 +100,9 @@ async function initSchema(database = db) {
   // Report pipeline, free -> paid -> paid:
   //   simple_report       — free, generated on demand by a deterministic
   //                         server-side algorithm (server/services/reportService.js)
-  //   detailed_report     — paid (tier 'detail'), same algorithm but deeper;
-  //                         generated automatically the moment the matching
-  //                         order is paid (see POST /api/orders/:id/simulate-sandbox-pay)
+  //   detailed_report     — same algorithm but deeper; always viewable after
+  //                         skip/QR submission, but Deep Insights remains
+  //                         locked until an admin verifies payment.
   //   deep_insights_report — paid (tier 'deep_insights'), AI-written; either
   //                         auto-generated on payment (settings.aiMechanism)
   //                         or written/triggered manually by an admin
@@ -136,7 +136,7 @@ async function initSchema(database = db) {
     product_code   TEXT NOT NULL,
     amount_cents   INTEGER NOT NULL,
     currency       TEXT NOT NULL DEFAULT 'USD',
-    channel        TEXT,            -- sandbox|stripe|paypal
+    channel        TEXT,            -- qr:<payment-method-id>|future gateway
     status         TEXT NOT NULL DEFAULT 'pending', -- pending|paid|failed|refunded|cancelled
     deleted        BOOLEAN NOT NULL DEFAULT false,
     paid_at        TEXT,

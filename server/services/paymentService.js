@@ -3,16 +3,11 @@
  *
  * Pricing is admin-configurable per category/tier (see db/index.js
  * seedSettings → settings.pricing), not a static price list — this file
- * resolves the live price at order-creation time and runs the sandbox
- * payment simulation.
- *
- * PAYMENT_MODE=sandbox — a local HMAC-simulated gateway good enough to
- * exercise the full order state machine (pending -> paid) without a real
- * payment provider. Swap in Stripe/PayPal by implementing the TODO(live)
- * sections; the order state machine itself doesn't need to change.
+ * resolves the live price at order-creation time and reads the enabled QR
+ * payment methods. Paid status is granted only by an admin verification route,
+ * never by a customer-side payment simulation.
  */
 'use strict';
-const crypto = require('crypto');
 const { CATEGORIES } = require('../data/categories');
 
 const TIERS = ['detail', 'deep_insights'];
@@ -73,24 +68,7 @@ async function getPaymentMethodById(db, paymentMethodId) {
   )) || null;
 }
 
-function sandboxSign(payload) {
-  const secret = process.env.PAYMENT_SANDBOX_SECRET || 'change-me-sandbox-signing-key';
-  return crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
-}
-
-/** Simulates an instantly-successful sandbox payment. */
-function simulateSandboxPayment(order) {
-  const payload = { orderId: order.id, amountCents: order.amount_cents, ts: Date.now() };
-  return { signature: sandboxSign(payload), payload, status: 'paid' };
-}
-
-// TODO(live): implement createStripeCheckout(order) / createPaypalOrder(order)
-// and verifyWebhookSignature(channel, rawBody, headers) here, then route
-// POST /api/orders/:id/pay-intent and POST /api/payments/notify/:channel
-// to them based on PAYMENT_MODE / order.channel.
-
 module.exports = {
   TIERS, TIER_LABEL, productCode, parseProductCode,
   resolvePriceCents, getAiEndpoints, getAiMechanismSettings, getPaymentMethodById,
-  simulateSandboxPayment, sandboxSign,
 };

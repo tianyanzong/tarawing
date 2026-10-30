@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>Payments</h2>
-          <p>In this build, payments run through a local sandbox for development and testing — no real card details are collected or transmitted. A production deployment using a real payment processor would route card details directly to that processor; Tarawing itself never stores full card numbers.</p>
+          <p>Payments use QR codes configured by an administrator. Tarawing records the selected payment method, order amount, and payment status so an administrator can verify the incoming payment; it does not collect or store card numbers. Automatic confirmation depends on the payment provider or bank used outside Tarawing.</p>
         </section>
         <section>
           <h2 style={{ fontSize: 19, color: 'var(--parchment)', marginBottom: 10 }}>Your controls</h2>

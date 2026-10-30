@@ -69,7 +69,7 @@ const DEMO_READINGS = [
     id: 'demo_rd_holy_triangle',
     type: 'holy_triangle',
     question: 'How can I move this project forward?',
-    status: 'detail_unlocked',
+    status: 'detail_paid',
     inputData: { type: 'holy_triangle', question: 'How can I move this project forward?' },
     resultBasic: {
       spread: 'holy_triangle',
@@ -144,7 +144,7 @@ const DEMO_READINGS = [
     id: 'demo_rd_playing_card',
     type: 'playing_cards',
     question: 'Will the negotiation move forward?',
-    status: 'detail_unlocked',
+    status: 'detail_unpaid',
     inputData: { type: 'playing_cards', question: 'Will the negotiation move forward?' },
     resultBasic: {
       deck: 'playing_cards',
@@ -167,7 +167,7 @@ const DEMO_READINGS = [
     id: 'demo_rd_gypsy_cross',
     type: 'gypsy_cross',
     question: 'What is blocking a calmer routine?',
-    status: 'detail_unlocked',
+    status: 'detail_unpaid',
     inputData: { type: 'gypsy_cross', question: 'What is blocking a calmer routine?' },
     resultBasic: {
       spread: 'gypsy_cross',

@@ -586,6 +586,17 @@ promise. Corrected:
       both forms use the same 420px width.
 - [x] Extended the browser regression test to compare login and register widths.
 
+## Batch 29 — Admin payments and AI providers, part 1: configuration foundation (DONE)
+- [x] Added ordered AI endpoint and QR payment-method schemas with provider
+      adapters for Anthropic, OpenAI, DeepSeek, and custom OpenAI-compatible
+      services.
+- [x] Added AES-256-GCM helpers for API-key storage, admin redaction,
+      replacement-key preservation, and public settings projections.
+- [x] Added `detail_unpaid`, `detail_tobepaid`, and `detail_paid` report states
+      plus an idempotent migration from legacy `detail_unlocked`.
+- [x] Added settings security and schema tests. The old sandbox send/report UI
+      remains in place until the later route and client batches replace it.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`

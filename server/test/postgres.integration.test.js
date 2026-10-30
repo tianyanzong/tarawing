@@ -64,6 +64,8 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
 
   const settings = await database.one(`SELECT value FROM settings WHERE key='site'`);
   assert.equal(settings.value.siteName, 'Tarawing');
+  assert.deepEqual(settings.value.aiMechanism.endpoints, []);
+  assert.deepEqual(settings.value.paymentMethods, []);
   const normalizedFaq = await database.one('SELECT question FROM faq WHERE id=$1', ['legacy_brand_faq']);
   assert.equal(normalizedFaq.question, 'Tarawing legacy question');
 
@@ -76,9 +78,20 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   }
 
   const stableReading = await database.one('SELECT * FROM readings WHERE id=$1', ['demo_rd_holy_triangle']);
-  assert.equal(stableReading.status, 'detail_unlocked');
+  assert.equal(stableReading.status, 'detail_paid');
   assert.ok(stableReading.detailed_report);
   assert.ok(stableReading.deep_insights_report);
+
+  await database.run(
+    `UPDATE readings SET status='detail_unlocked' WHERE id=$1`,
+    ['demo_rd_holy_triangle'],
+  );
+  await initSchema(database);
+  const migratedReading = await database.one(
+    'SELECT status FROM readings WHERE id=$1',
+    ['demo_rd_holy_triangle'],
+  );
+  assert.equal(migratedReading.status, 'detail_paid');
 
   const lenormandPair = await database.one('SELECT * FROM readings WHERE id=$1', ['demo_rd_lenormand_pair']);
   assert.equal(lenormandPair.type, 'lenormand_pair');

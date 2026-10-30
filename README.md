@@ -118,6 +118,15 @@ The ones that matter most:
 | `PAYMENT_MODE` | `sandbox` (default) simulates instant payment success for dev/testing |
 | `DB_REINIT` | Defaults to `false`; set `true` only when intentionally wiping the development database |
 
+### Admin-managed AI and payment configuration
+
+The settings data model now reserves ordered AI provider entries and QR payment
+methods in the existing JSONB settings row. This groundwork includes strict
+validation, AES-256-GCM encryption helpers for stored API keys, admin-safe
+redaction, and the report statuses `detail_unpaid`, `detail_tobepaid`, and
+`detail_paid`. The settings screens, provider fallback calls, and admin
+verification workflow are added in the following implementation batches.
+
 ## API DTOs
 
 PostgreSQL rows remain `snake_case`. All JSON API responses pass through

@@ -111,7 +111,7 @@ async function initSchema(database = db) {
     user_id               TEXT REFERENCES users(id) ON DELETE CASCADE,
     type                  TEXT NOT NULL,
     question              TEXT,
-    status                TEXT NOT NULL DEFAULT 'new', -- new|detail_unlocked
+    status                TEXT NOT NULL DEFAULT 'new', -- new|detail_unpaid|detail_tobepaid|detail_paid
     input_data            JSONB,
     result_basic          JSONB,
     simple_report         TEXT,
@@ -148,6 +148,23 @@ async function initSchema(database = db) {
   await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_page ON orders(deleted,created_at DESC,id DESC)`);
   await database.run(`CREATE INDEX IF NOT EXISTS idx_orders_status_page ON orders(deleted,status,created_at DESC,id DESC)`);
   await database.run(`CREATE INDEX IF NOT EXISTS idx_users_page ON users(created_at DESC,id DESC)`);
+
+  // Preserve existing purchases while moving the old binary unlock state to
+  // the explicit unpaid / payment-verification / paid state machine.
+  await database.run(`
+    UPDATE readings SET status='detail_paid'
+    WHERE status='detail_unlocked'
+      AND EXISTS (
+        SELECT 1 FROM orders
+        WHERE orders.reading_id=readings.id
+          AND orders.product_code LIKE 'detail_%'
+          AND orders.status='paid'
+      )
+  `);
+  await database.run(`
+    UPDATE readings SET status='detail_unpaid'
+    WHERE status='detail_unlocked'
+  `);
 
   await database.run(`CREATE TABLE IF NOT EXISTS notifications (
     id          TEXT PRIMARY KEY,
@@ -319,12 +336,19 @@ async function seedSettings(database = db) {
   const existing = await database.one(`SELECT value FROM settings WHERE key='site'`);
   if (existing) {
     const normalized = JSON.stringify(existing.value).replaceAll(LEGACY_BRAND_NAME, BRAND_NAME);
-    if (normalized !== JSON.stringify(existing.value)) {
+    const value = JSON.parse(normalized);
+    value.aiMechanism = {
+      autoGenerateOnPayment: value.aiMechanism?.autoGenerateOnPayment !== false,
+      endpoints: Array.isArray(value.aiMechanism?.endpoints) ? value.aiMechanism.endpoints : [],
+    };
+    value.paymentMethods = Array.isArray(value.paymentMethods) ? value.paymentMethods : [];
+    const next = JSON.stringify(value);
+    if (next !== JSON.stringify(existing.value)) {
       await database.run(
         `UPDATE settings SET value=$1, updated_at=$2 WHERE key='site'`,
-        [normalized, now()],
+        [next, now()],
       );
-      logger.info('Updated legacy site branding');
+      logger.info('Normalized site settings');
     }
     return;
   }
@@ -349,7 +373,9 @@ async function seedSettings(database = db) {
       // it manually from the admin portal's Deep Insights queue.
       aiMechanism: {
         autoGenerateOnPayment: true,
+        endpoints: [],
       },
+      paymentMethods: [],
     }),
     now(),
   ]);

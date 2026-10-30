@@ -6,6 +6,45 @@ const READING_TYPES = [
   'holy_triangle', 'gypsy_cross', 'hexagram', 'solomon_star', 'seven_planets',
 ];
 
+const AI_ADAPTERS = ['anthropic', 'openai', 'deepseek', 'openai_compatible'];
+const httpsUrl = z.string().url().refine((value) => value.startsWith('https://'), {
+  message: 'Base URL must use HTTPS.',
+});
+const qrImage = z.string()
+  .max(1_500_000)
+  .refine(
+    (value) => value === '' || /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value),
+    { message: 'QR image must be a PNG, JPEG, or WebP data URL.' },
+  );
+
+const aiEndpoint = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(80),
+  adapter: z.enum(AI_ADAPTERS),
+  model: z.string().min(1).max(160),
+  baseUrl: httpsUrl.optional(),
+  apiKey: z.string().max(4096).optional(),
+  hasApiKey: z.boolean().optional(),
+  enabled: z.boolean(),
+  order: z.number().int().min(0),
+}).superRefine((value, ctx) => {
+  if (value.adapter === 'openai_compatible' && !value.baseUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['baseUrl'],
+      message: 'A custom HTTPS base URL is required for OpenAI-compatible providers.',
+    });
+  }
+});
+
+const paymentMethod = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(80),
+  enabled: z.boolean(),
+  qrImage: qrImage.optional().default(''),
+  order: z.number().int().min(0),
+});
+
 const S = {
   register: z.object({
     name: z.string().min(1).max(80),
@@ -98,8 +137,10 @@ const S = {
     }).optional(),
     aiMechanism: z.object({
       autoGenerateOnPayment: z.boolean(),
+      endpoints: z.array(aiEndpoint).max(20).optional(),
     }).optional(),
+    paymentMethods: z.array(paymentMethod).max(20).optional(),
   }).passthrough(), // allow unknown fields through rather than stripping them silently
 };
 
-module.exports = { S, READING_TYPES };
+module.exports = { S, READING_TYPES, AI_ADAPTERS };

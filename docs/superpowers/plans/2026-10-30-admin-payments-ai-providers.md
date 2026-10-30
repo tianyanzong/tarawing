@@ -21,6 +21,8 @@
 - Keep `server/` and `client/` dependencies separate.
 - Preserve the untracked `server/test/spreads.test.js`.
 - Run verification before every commit.
+- Every task must update `README.md` and `docs/PROGRESS.md` and include those
+  files in that task's commit.
 
 ---
 

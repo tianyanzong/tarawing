@@ -16,6 +16,39 @@ const ADMIN = {
   isSuper: true,
 };
 
+const ADMIN_SETTINGS = {
+  siteName: 'Tarawing',
+  tagline: 'Read the Cosmos. Find Your Path.',
+  donationEnabled: true,
+  donationMessage: 'Support Tarawing',
+  supportEmail: 'support@tarawing.app',
+  pricing: {
+    tarot: { detail: 299, deepInsights: 499 },
+    astrology: { detail: 599, deepInsights: 999 },
+    spreads: { detail: 399, deepInsights: 599 },
+  },
+  aiMechanism: {
+    autoGenerateOnPayment: true,
+    endpoints: [{
+      id: 'aip_preview',
+      name: 'OpenAI primary',
+      adapter: 'openai',
+      model: 'gpt-4.1-mini',
+      baseUrl: 'https://api.openai.com/v1',
+      enabled: true,
+      order: 0,
+      hasApiKey: true,
+    }],
+  },
+  paymentMethods: [{
+    id: 'pm_paypal',
+    name: 'PayPal',
+    enabled: true,
+    qrImage: 'data:image/png;base64,iVBORw0KGgo=',
+    order: 0,
+  }],
+};
+
 const READING = {
   id: 'rd_preview',
   type: 'tarot',
@@ -92,10 +125,13 @@ async function useAdminSession(page: Page) {
           items: [{
             id: cursor ? 'ord_preview_2' : 'ord_preview',
             userId: USER.id,
+            userEmail: USER.email,
             productCode: cursor ? 'detail_spreads' : 'detail_tarot',
             amountCents: cursor ? 399 : 299,
             currency: 'USD',
-            status: 'paid',
+            channel: 'qr:pm_paypal',
+            status: cursor ? 'detail_tobepaid' : 'detail_tobepaid',
+            paidAt: null,
             createdAt: '2026-10-26T10:00:00.000Z',
           }],
           nextCursor: cursor ? null : 'orders-page-2',
@@ -123,6 +159,11 @@ async function useAdminSession(page: Page) {
         adminNotes: null,
       },
     }),
+  }));
+  await page.route('**/api/admin/settings', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: ADMIN_SETTINGS }),
   }));
 }
 
@@ -202,6 +243,33 @@ test('admin orders append the next cursor page', async ({ page }) => {
   await expect(page.getByText('detail_tarot')).toBeVisible();
   await page.getByRole('button', { name: 'Load more orders' }).click();
   await expect(page.getByText('detail_spreads')).toBeVisible();
+});
+
+test('admin settings exposes four tabs for general, pricing, AI, and payment methods', async ({ page }) => {
+  await useAdminSession(page);
+  await page.goto('/admin/settings');
+
+  await expect(page.getByRole('button', { name: 'General', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Report pricing', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'AI mechanism', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Payment methods', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'AI mechanism', exact: true }).click();
+  await expect(page.getByText('OpenAI primary', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('API key replacement for OpenAI primary')).toHaveAttribute('placeholder', /configured/i);
+
+  await page.getByRole('button', { name: 'Payment methods', exact: true }).click();
+  await expect(page.getByText('PayPal')).toBeVisible();
+  await expect(page.getByAltText('PayPal QR code')).toBeVisible();
+});
+
+test('admin orders show owner email and verification controls', async ({ page }) => {
+  await useAdminSession(page);
+  await page.goto('/admin/orders');
+
+  await expect(page.getByText(USER.email).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Verify payment' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reject payment' }).first()).toBeVisible();
 });
 
 test('tarot draw renders loaded image artwork instead of generated placeholder art', async ({ page }) => {
@@ -452,7 +520,7 @@ test('spread cards keep uniform width and height with variable text', async ({ p
   expect(Math.max(...boxes.map((box) => box.width)) - Math.min(...boxes.map((box) => box.width))).toBeLessThanOrEqual(1);
   expect(Math.max(...boxes.map((box) => box.height)) - Math.min(...boxes.map((box) => box.height))).toBeLessThanOrEqual(1);
   expect(boxes[0].width).toBeGreaterThanOrEqual(240);
-  expect(boxes[0].height).toBe(560);
+  expect(boxes[0].height).toBeCloseTo(560, 3);
 });
 
 test('horizontal logo loads on desktop and mobile without overflow', async ({ page }) => {

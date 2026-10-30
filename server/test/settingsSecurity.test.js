@@ -6,9 +6,11 @@ const test = require('node:test');
 process.env.SETTINGS_ENCRYPTION_KEY = 'test-settings-encryption-key';
 
 const {
+  auditSettings,
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,
+  publicPaymentMethods,
   publicSettings,
   sanitizeAiEndpointsForAdmin,
 } = require('../services/settingsSecurity');
@@ -101,4 +103,45 @@ test('public settings omit AI credentials, pricing, and payment records', () => 
     donationEnabled: true,
     donationMessage: 'Support us',
   });
+});
+
+test('publishes only enabled QR methods and redacts audit settings', () => {
+  const settings = {
+    siteName: 'Tarawing',
+    pricing: { tarot: { detail: 100 } },
+    aiMechanism: {
+      autoGenerateOnPayment: true,
+      endpoints: [{
+        id: 'aip_1',
+        name: 'OpenAI',
+        adapter: 'openai',
+        model: 'gpt',
+        enabled: true,
+        order: 0,
+        apiKeyEncrypted: encryptSecret('sk-secret'),
+      }],
+    },
+    paymentMethods: [
+      {
+        id: 'pm_paypal',
+        name: 'PayPal',
+        enabled: true,
+        order: 0,
+        qrImage: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+      {
+        id: 'pm_hidden',
+        name: 'Hidden',
+        enabled: false,
+        order: 1,
+        qrImage: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    ],
+  };
+
+  assert.deepEqual(publicPaymentMethods(settings).map((method) => method.id), ['pm_paypal']);
+  const audit = auditSettings(settings);
+  assert.equal(JSON.stringify(audit).includes('sk-secret'), false);
+  assert.equal(JSON.stringify(audit).includes('data:image'), false);
+  assert.equal(audit.paymentMethods[0].name, 'PayPal');
 });

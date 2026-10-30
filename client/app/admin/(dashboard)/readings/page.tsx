@@ -82,12 +82,13 @@ function AdminReadingsPageContent() {
         <h1 style={{ fontSize: 28, marginBottom: 20 }}>Readings</h1>
         {error && <p className="form-error">{error}</p>}
         <table className="data-table">
-          <thead><tr><th>Type</th><th>Status</th><th>Created</th><th></th></tr></thead>
+          <thead><tr><th>Type</th><th>User</th><th>Status</th><th>Created</th><th></th></tr></thead>
           <tbody>
             {rows?.map((r) => (
               <tr key={r.id}>
                 <td>{r.type.replace(/_/g, ' ')}</td>
-                <td><span className={`tag ${r.status === 'detail_unlocked' ? 'tag--gold' : ''}`}>{r.status}</span></td>
+                <td>{r.userEmail || r.userId || 'Anonymous'}</td>
+                <td><span className={`tag ${['detail_paid', 'detail_unlocked'].includes(r.status) ? 'tag--gold' : ''}`}>{r.status}</span></td>
                 <td>{new Date(r.createdAt).toLocaleDateString()}</td>
                 <td><button className="btn btn-ghost" onClick={() => open(r.id)}>View</button></td>
               </tr>
@@ -107,6 +108,7 @@ function AdminReadingsPageContent() {
             <button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>
           </div>
           {selected.question && <p className="form-note" style={{ marginBottom: 14 }}>Question: {selected.question}</p>}
+          <p className="form-note" style={{ marginBottom: 14 }}>User: {selected.userEmail || selected.userId || 'Anonymous'}</p>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12.5, background: 'var(--ink)', padding: 12, borderRadius: 3, maxHeight: 180, overflow: 'auto' }}>
             {JSON.stringify(selected.resultBasic, null, 2)}
           </pre>

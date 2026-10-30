@@ -48,6 +48,13 @@ const { categoryOf, CATEGORIES } = require('./data/categories');
 const { parsePagination } = require('./utils/pagination');
 const { dtoResponse } = require('./utils/dto');
 const {
+  auditSettings,
+  mergeAiEndpoints,
+  publicPaymentMethods,
+  publicSettings,
+  settingsForAdmin,
+} = require('./services/settingsSecurity');
+const {
   listAdminOrders, listAdminReadings, listAdminUsers, listUserOrders, listUserReadings,
 } = require('./repositories/lists');
 
@@ -557,7 +564,11 @@ app.get('/api/faq', ah(async (_req, res) => {
 }));
 app.get('/api/settings', ah(async (_req, res) => {
   const row = await db.one("SELECT value FROM settings WHERE key='site'");
-  res.json({ data: row ? row.value : {} });
+  res.json({ data: publicSettings(row?.value || {}) });
+}));
+app.get('/api/payment-methods', ah(async (_req, res) => {
+  const row = await db.one("SELECT value FROM settings WHERE key='site'");
+  res.json({ data: publicPaymentMethods(row?.value || {}) });
 }));
 
 // ══════════════════════════ ADMIN ══════════════════════════
@@ -836,13 +847,43 @@ app.post('/api/admin/consultations/:id/reply', requirePerm('consults'), ah(async
 
 app.get('/api/admin/settings', requirePerm('settings'), ah(async (_req, res) => {
   const row = await db.one("SELECT value FROM settings WHERE key='site'");
-  res.json({ data: row ? row.value : {} });
+  res.json({ data: settingsForAdmin(row?.value || {}) });
 }));
 app.put('/api/admin/settings', requirePerm('settings'), validate(S.siteSettings), ah(async (req, res) => {
-  await db.run("INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2) ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2", [JSON.stringify(req.body || {}), now()]);
+  const row = await db.one("SELECT value FROM settings WHERE key='site'");
+  const current = row?.value || {};
+  const incoming = req.body || {};
+  const next = { ...current, ...incoming };
+
+  if (incoming.aiMechanism) {
+    const endpoints = mergeAiEndpoints(
+      incoming.aiMechanism.endpoints || [],
+      current.aiMechanism?.endpoints || [],
+    );
+    if (endpoints.some((endpoint) => endpoint.enabled && !endpoint.apiKeyEncrypted)) {
+      return res.status(400).json({ error: 'Every enabled AI provider needs an API key.' });
+    }
+    next.aiMechanism = {
+      autoGenerateOnPayment: incoming.aiMechanism.autoGenerateOnPayment,
+      endpoints,
+    };
+  }
+
+  if (incoming.paymentMethods) {
+    const paymentMethods = incoming.paymentMethods.map((method, index) => ({
+      ...method,
+      order: index,
+    }));
+    if (paymentMethods.some((method) => method.enabled && !method.qrImage)) {
+      return res.status(400).json({ error: 'Every enabled payment method needs a QR image.' });
+    }
+    next.paymentMethods = paymentMethods;
+  }
+
+  await db.run("INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2) ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2", [JSON.stringify(next), now()]);
   await db.run('INSERT INTO audit_logs (id,admin_id,admin_name,action,target,meta,created_at) VALUES ($1,$2,$3,\'settings.update\',\'site\',$4,$5)',
-    [id('log'), req.admin.id, req.admin.username, JSON.stringify(req.body || {}), now()]);
-  res.json({ data: { ok: true } });
+    [id('log'), req.admin.id, req.admin.username, JSON.stringify(auditSettings(next)), now()]);
+  res.json({ data: { settings: settingsForAdmin(next) } });
 }));
 app.get('/api/admin/audit-logs', requirePerm('settings'), ah(async (_req, res) => {
   const rows = await db.all('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200');

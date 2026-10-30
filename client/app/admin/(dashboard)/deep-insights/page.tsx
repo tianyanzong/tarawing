@@ -26,18 +26,19 @@ export default function DeepInsightsQueuePage() {
       </p>
       {error && <p className="form-error">{error}</p>}
       <table className="data-table">
-        <thead><tr><th>Type</th><th>Category</th><th>Question</th><th>Paid</th><th></th></tr></thead>
+        <thead><tr><th>Type</th><th>User</th><th>Category</th><th>Question</th><th>Paid</th><th></th></tr></thead>
         <tbody>
           {rows?.map((r) => (
             <tr key={r.orderId}>
               <td>{r.type.replace(/_/g, ' ')}</td>
+              <td>{r.userEmail || '-'}</td>
               <td>{r.category}</td>
               <td>{r.question || '—'}</td>
               <td>{r.paidAt ? new Date(r.paidAt).toLocaleString() : '—'}</td>
               <td><Link href={`/admin/readings?id=${r.readingId}`} className="btn btn-ghost">Open in Readings</Link></td>
             </tr>
           ))}
-          {rows && rows.length === 0 && <tr><td colSpan={5} className="form-note">Nothing pending — the queue is empty.</td></tr>}
+          {rows && rows.length === 0 && <tr><td colSpan={6} className="form-note">Nothing pending - the queue is empty.</td></tr>}
         </tbody>
       </table>
     </div>

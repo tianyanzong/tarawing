@@ -129,7 +129,27 @@ function publicPaymentMethods(settings = {}) {
     }));
 }
 
+function auditSettings(settings = {}) {
+  return {
+    siteName: settings.siteName,
+    pricing: settings.pricing,
+    aiMechanism: {
+      autoGenerateOnPayment: settings.aiMechanism?.autoGenerateOnPayment !== false,
+      endpoints: sanitizeAiEndpointsForAdmin(settings.aiMechanism?.endpoints),
+    },
+    paymentMethods: Array.isArray(settings.paymentMethods)
+      ? settings.paymentMethods.map((method) => ({
+        id: method.id,
+        name: method.name,
+        enabled: method.enabled,
+        order: method.order,
+      }))
+      : [],
+  };
+}
+
 module.exports = {
+  auditSettings,
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,

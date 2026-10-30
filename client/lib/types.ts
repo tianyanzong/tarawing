@@ -60,13 +60,21 @@ export interface DeepInsightsState {
   paid: boolean;
   ready: boolean;
   pending: boolean; // paid, but report not generated yet (manual or failed auto-gen)
+  submitted: boolean;
   report: string | null;
-  orderId: string | null; // a pending (unpaid) order's id, if one exists
+  orderId: string | null;
+  orderStatus: string | null;
 }
 
 export interface ReadingPricing {
   detailCents: number;
   deepInsightsCents: number;
+}
+
+export interface DetailPaymentState {
+  orderId: string | null;
+  orderStatus: string | null;
+  amountCents: number | null;
 }
 
 /** The full shape returned by GET /api/readings/:id — drives the whole
@@ -82,7 +90,9 @@ export interface ReadingView {
   resultBasic: SpreadResult | NatalChartResult | null;
   simpleReport: string | null;
   detailedUnlocked: boolean;
+  detailedPaid: boolean;
   detailedReport: string | null;
+  detailPayment: DetailPaymentState;
   deepInsights: DeepInsightsState;
   pricing: ReadingPricing | null;
 }
@@ -141,6 +151,7 @@ export interface Order {
   currency: string;
   channel: string | null;
   status: string;
+  userEmail?: string | null;
   paidAt: string | null;
   createdAt: string;
 }
@@ -148,6 +159,7 @@ export interface Order {
 export interface AdminReadingSummary {
   id: string;
   userId: string | null;
+  userEmail?: string | null;
   type: string;
   question: string | null;
   status: string;
@@ -155,6 +167,7 @@ export interface AdminReadingSummary {
 }
 
 export interface AdminReadingDetail extends AdminReadingSummary {
+  userEmail?: string | null;
   resultBasic: unknown;
   simpleReport: string | null;
   detailedReport: string | null;
@@ -191,6 +204,47 @@ export interface DeepInsightsQueueItem {
   question: string | null;
   readingCreatedAt: string;
   category: string | null;
+  userEmail?: string | null;
+}
+
+export type AiAdapter = 'anthropic' | 'openai' | 'deepseek' | 'openai_compatible';
+
+export interface AiEndpoint {
+  id: string;
+  name: string;
+  adapter: AiAdapter;
+  model: string;
+  baseUrl: string;
+  enabled: boolean;
+  order: number;
+  hasApiKey?: boolean;
+  apiKey?: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  enabled: boolean;
+  qrImage: string;
+  order: number;
+}
+
+export interface SiteSettings {
+  siteName: string;
+  tagline: string;
+  donationEnabled: boolean;
+  donationMessage: string;
+  supportEmail: string;
+  pricing: {
+    tarot: { detail: number; deepInsights: number };
+    astrology: { detail: number; deepInsights: number };
+    spreads: { detail: number; deepInsights: number };
+  };
+  aiMechanism: {
+    autoGenerateOnPayment: boolean;
+    endpoints: AiEndpoint[];
+  };
+  paymentMethods: PaymentMethod[];
 }
 
 export interface Notification {

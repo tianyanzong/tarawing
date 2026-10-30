@@ -383,4 +383,11 @@ Admin accounts). Permissions are domain-scoped (`users`, `orders`,
 `readings`, `consults`, `settings`, `content`) and enforced both in the API
 (`requirePerm`) and hidden from the nav client-side for admins who lack them.
 
+Settings has four tabs: General, Report pricing, AI mechanism, and Payment
+methods. AI providers can be added, enabled, reordered, and replaced without
+editing environment variables. Payment-method QR images are uploaded from the
+admin screen and can also be enabled, disabled, and reordered. Orders shows the
+owning user's email and exposes Verify/Reject controls for submitted QR
+payments.
+
 See `docs/PROGRESS.md` for the full batch-by-batch build log.

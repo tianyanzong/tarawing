@@ -618,6 +618,21 @@ promise. Corrected:
       Insights payment has been verified by an admin.
 - [x] Added focused state and payment-method tests.
 
+## Batch 32 — Admin payments and AI providers, part 4: settings and verification UI (DONE)
+- [x] Split admin Settings into General, Report pricing, AI mechanism, and
+      Payment methods tabs.
+- [x] Added ordered AI provider records with provider name, adapter, model,
+      HTTPS base URL, key replacement, enabled state, add/remove, and Up/Down
+      controls.
+- [x] Added QR payment-method records with name, image upload, preview,
+      enable/disable, add/remove, and ordering controls.
+- [x] Added user email columns to Orders, Readings, and Deep Insights Queue.
+- [x] Added Verify payment and Reject payment actions for submitted orders.
+- [x] Sanitized admin settings responses, public settings, and audit metadata;
+      enabled providers/payment methods now require a key or QR image.
+- [x] Added browser coverage for the four settings tabs and admin verification
+      controls.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`

@@ -724,6 +724,14 @@ promise. Corrected:
 - [x] Checked admin settings and account flows at desktop/mobile widths for
       horizontal overflow or controls escaping the viewport.
 
+## Batch 40 — Zod 4 major upgrade (DONE)
+- [x] Upgraded the server from Zod 3.25.76 to Zod 4.6.7.
+- [x] Re-ran all existing schema tests for settings, SMTP, QR images, auth,
+      payments, and provider configuration without compatibility changes.
+- [x] Re-ran the PostgreSQL integration suite against `tarawing_test`
+      (43/43 tests), server build, and root production build.
+- [x] Confirmed `npm audit --omit=dev` now reports zero vulnerabilities.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank
@@ -734,5 +742,3 @@ promise. Corrected:
 - SMTP delivery requires a configured provider; automated tests use an injected
   transport and do not send external email
 - Existing stateless JWT sessions survive password reset
-- Existing Zod 3.x has a high-severity dependency advisory; the available fix
-  is a separate Zod 4 major upgrade

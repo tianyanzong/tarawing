@@ -351,9 +351,8 @@ Until you do, the free Pirata One (Google Fonts) is what actually renders.
   account. Use the SMTP tab's test-email action after saving the server details.
 - **Existing JWT sessions are not revoked by a password reset.** Tokens remain
   stateless until the auth-session model is strengthened.
-- **Dependency audit:** `npm audit` reports one remaining high-severity advisory
-  for the existing Zod 3.x dependency. Its available fix is Zod 4.x, which is a
-  separate major upgrade and was not bundled into this feature work.
+- **Dependency audit:** `npm audit --omit=dev` reports zero known
+  vulnerabilities for the current lockfile.
 - **Tarot deck**: 22 Major Arcana are hand-written; the 56 Minor Arcana are
   assembled from a suit-theme × rank-theme table rather than 56 individually
   hand-authored entries (see comments in `server/data/tarotDeck.js` for why —

@@ -86,11 +86,11 @@ const FOCUS_GUIDANCE = {
 
 function detectQuestionFocus(question = '') {
   const q = String(question).toLowerCase();
-  if (/(health|wellbeing|well-being|sleep|energy|anxiety|burnout|body)/.test(q)) return 'wellbeing';
-  if (/(relationship|partner|love|marriage|dating|friend|family|communication)/.test(q)) return 'relationships';
-  if (/(job|career|work|business|project|manager|colleague|coworker|promotion)/.test(q)) return 'career';
-  if (/(money|finance|financial|debt|income|salary|budget|rent|invest)/.test(q)) return 'money';
-  if (/(move|leave|change|transition|start over|new chapter|Ending)/i.test(q)) return 'transition';
+  if (/\b(health|wellbeing|well-being|sleep|energy|anxiety|burnout|body)\b/.test(q)) return 'wellbeing';
+  if (/\b(relationship|partner|love|marriage|dating|friend|family|communication)\b/.test(q)) return 'relationships';
+  if (/\b(job|career|work|business|project|manager|colleague|coworker|promotion)\b/.test(q)) return 'career';
+  if (/\b(money|finance|financial|debt|income|salary|budget|rent|invest)\b/.test(q)) return 'money';
+  if (/\b(move|moving|leave|leaving|change|changing|transition|start over|new chapter|ending)\b/.test(q)) return 'transition';
   if (/(should i .*(choose|accept|leave|stay|start|end)|choose|choice|option|decide|decision)/.test(q)) return 'decision';
   return 'general';
 }
@@ -243,7 +243,7 @@ function detailedAstrologyReport(reading) {
   const lines = [];
   if (chart.sun) {
     const trait = ZODIAC_TRAITS[chart.sun.sign];
-    lines.push(`Aries Sun check: ${chart.sun.sign} Sun at ${chart.sun.degreeInSign}° — your core identity tends to be ${trait?.trait || 'distinctly itself'}, expressed through a ${trait?.modality || ''} ${trait?.element || ''} style.`);
+    lines.push(`${chart.sun.sign} Sun at ${chart.sun.degreeInSign}° — your core identity tends to be ${trait?.trait || 'distinctly itself'}, expressed through a ${trait?.modality || ''} ${trait?.element || ''} style.`);
   }
   if (chart.moon) {
     const trait = ZODIAC_TRAITS[chart.moon.sign];

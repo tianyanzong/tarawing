@@ -104,6 +104,14 @@ async function sendUserVerificationEmail(user, settings, database = db) {
   return true;
 }
 
+function queueAuthEmail(task, message, metadata = {}) {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(task)
+      .catch((err) => logger.error(message, { err, ...metadata }));
+  });
+}
+
 function detailedReportBundleFor(reading) {
   if (reading.detailed_report) {
     return {
@@ -316,12 +324,10 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(S.forgotPassword),
   const user = await db.one('SELECT id,email FROM users WHERE email=$1', [email]);
   const settings = await getSiteSettings();
   if (user && settings.smtp?.enabled) {
-    try {
+    queueAuthEmail(async () => {
       const { token } = await createAuthToken(db, user.id, 'password_reset');
       await sendPasswordResetEmail(settings.smtp, user.email, token);
-    } catch (err) {
-      logger.error('Password-reset email failed', { err, userId: user.id });
-    }
+    }, 'Password-reset email failed', { userId: user.id });
   }
   res.json({ data: { ok: true, message: 'If that email is registered, a reset link has been sent.' } });
 }));
@@ -357,11 +363,9 @@ app.post('/api/auth/resend-verification', authRateLimit, validate(S.resendVerifi
     [email],
   );
   if (user && !user.email_verified_at) {
-    try {
+    queueAuthEmail(async () => {
       await sendUserVerificationEmail(user, await getSiteSettings());
-    } catch (err) {
-      logger.error('Resend verification email failed', { err, userId: user.id });
-    }
+    }, 'Resend verification email failed', { userId: user.id });
   }
   res.json({ data: { ok: true, message: 'If verification is still needed, a new email has been sent.' } });
 }));

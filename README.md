@@ -346,6 +346,14 @@ Until you do, the free Pirata One (Google Fonts) is what actually renders.
 - **Integration tests require configuration.** The PostgreSQL suite is skipped
   unless `TEST_DATABASE_URL` is set. The test database is protected by the
   `_test` name requirement and uses an isolated temporary schema.
+- **SMTP is not configured out of the box.** Mail delivery, password reset,
+  email verification, and the Settings test button require a working SMTP
+  account. Use the SMTP tab's test-email action after saving the server details.
+- **Existing JWT sessions are not revoked by a password reset.** Tokens remain
+  stateless until the auth-session model is strengthened.
+- **Dependency audit:** `npm audit` reports one remaining high-severity advisory
+  for the existing Zod 3.x dependency. Its available fix is Zod 4.x, which is a
+  separate major upgrade and was not bundled into this feature work.
 - **Tarot deck**: 22 Major Arcana are hand-written; the 56 Minor Arcana are
   assembled from a suit-theme × rank-theme table rather than 56 individually
   hand-authored entries (see comments in `server/data/tarotDeck.js` for why —

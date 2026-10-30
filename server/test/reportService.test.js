@@ -50,6 +50,7 @@ test('detects the question focus used for practical guidance', () => {
   assert.equal(detectQuestionFocus('How can I improve communication with my partner?'), 'relationships');
   assert.equal(detectQuestionFocus('Should I choose option A or option B?'), 'decision');
   assert.equal(detectQuestionFocus('What should I notice this week?'), 'general');
+  assert.equal(detectQuestionFocus('How do I remove a recurring distraction?'), 'general');
 });
 
 test('builds a structured question-specific detailed report', () => {

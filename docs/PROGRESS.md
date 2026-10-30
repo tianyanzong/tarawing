@@ -713,6 +713,17 @@ promise. Corrected:
 - [x] Added report/prompt unit coverage and browser coverage for admin prompt
       visibility.
 
+## Batch 39 — SMTP, email verification, and report prompts, part 5: release verification (DONE)
+- [x] Updated README and the project log with the SMTP, recovery, verification,
+      question-focused report, and admin AI-prompt behavior.
+- [x] Documented SMTP setup/testing, stateless-session limitations, and the
+      remaining existing Zod 3.x dependency advisory.
+- [x] Verified server unit and PostgreSQL integration tests against
+      `tarawing_test`, backend build, client type-check/unit tests, production
+      build, and the full Playwright suite.
+- [x] Checked admin settings and account flows at desktop/mobile widths for
+      horizontal overflow or controls escaping the viewport.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank
@@ -720,3 +731,8 @@ promise. Corrected:
 - PostgreSQL integration tests are skipped unless `TEST_DATABASE_URL` is set
   to a separate database whose name ends in `_test`
 - PDF output has not been visually inspected page-by-page
+- SMTP delivery requires a configured provider; automated tests use an injected
+  transport and do not send external email
+- Existing stateless JWT sessions survive password reset
+- Existing Zod 3.x has a high-severity dependency advisory; the available fix
+  is a separate Zod 4 major upgrade

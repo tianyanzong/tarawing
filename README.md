@@ -351,14 +351,16 @@ Every reading goes through three tiers, free to paid to paid:
    Written by a deterministic, non-AI algorithm (`server/services/reportService.js`)
    that combines the actual cards/positions or chart points into templated
    prose. No AI call, no cost.
-2. **Detailed report (paid)** — same algorithm, deeper (card-arc synthesis,
-   reversed-card notes, Sun/Moon element combinations). Unlocks the moment
-   the matching order is paid; can be exported as a PDF from the reading's
-   page.
+2. **Detailed report (optional payment)** — same algorithm, deeper (card-arc
+   synthesis, reversed-card notes, Sun/Moon element combinations). Users can
+   skip payment and keep the report with `detail_unpaid`, or submit a QR
+   payment for admin verification. The reading becomes `detail_tobepaid`
+   while waiting and `detail_paid` only after an admin verifies the order.
+   Accessible detailed reports can be exported as a PDF.
 3. **Deep Insights report (paid, separate order, requires tier 2 first)** —
    a bespoke AI-written interpretation (`server/services/aiReading.js`).
    Depending on the admin's **AI mechanism** setting, this either generates
-   automatically the instant payment completes, or lands in the admin
+   automatically after an admin verifies payment, or lands in the admin
    portal's **Deep Insights Queue** for a human to generate (one click, via
    AI) or write by hand.
 

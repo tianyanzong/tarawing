@@ -607,6 +607,17 @@ promise. Corrected:
 - [x] Added tests for provider ordering, disabled entries, request construction,
       and redacted aggregate errors.
 
+## Batch 31 — Admin payments and AI providers, part 3: server verification workflow (DONE)
+- [x] Added the server-side report state service for `detail_unpaid`,
+      `detail_tobepaid`, `detail_paid`, and Deep Insights paid access.
+- [x] Added owner-email joins for admin Orders, Readings, and the Deep Insights
+      Queue.
+- [x] Added QR payment submission, admin verification, rejection, and audit
+      logging routes. Removed the user-callable sandbox instant-pay route.
+- [x] Blocked AI and manual Deep Insights generation until a submitted Deep
+      Insights payment has been verified by an admin.
+- [x] Added focused state and payment-method tests.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`

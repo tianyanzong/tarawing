@@ -98,6 +98,9 @@ const S = {
     readingId: z.string().min(1),
     tier: z.enum(['detail', 'deep_insights']),
   }),
+  submitPayment: z.object({
+    paymentMethodId: z.string().min(1).max(80),
+  }),
 
   createConsult: z.object({
     name: z.string().max(80).optional(),

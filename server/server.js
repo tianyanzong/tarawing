@@ -30,8 +30,19 @@ const { generateAiReading } = require('./services/aiReading');
 const { generateSimpleReport, generateDetailedReport } = require('./services/reportService');
 const { renderReportPdf } = require('./services/pdfService');
 const {
-  TIERS, resolvePriceCents, getAiEndpoints, getAiMechanismSettings, simulateSandboxPayment,
+  resolvePriceCents, getAiEndpoints, getAiMechanismSettings, getPaymentMethodById,
+  parseProductCode,
 } = require('./services/paymentService');
+const {
+  DEEP_INSIGHTS_TOBEPAID,
+  DETAIL_PAID,
+  DETAIL_TOBEPAID,
+  DETAIL_UNPAID,
+  canGenerateDeepInsights,
+  detailAccessFromStatus,
+  isSubmittedOrderStatus,
+  verificationStatusForTier,
+} = require('./services/reportFlowService');
 const { SPREADS } = require('./data/spreads');
 const { categoryOf, CATEGORIES } = require('./data/categories');
 const { parsePagination } = require('./utils/pagination');
@@ -72,6 +83,72 @@ async function claimAndFetchReading(readingId, userId) {
     r.user_id = userId;
   }
   return r;
+}
+
+async function hasPaidDeepInsightsOrder(database, reading) {
+  const category = categoryOf(reading.type);
+  if (!category) return false;
+  const order = await database.one(
+    `SELECT id FROM orders
+     WHERE reading_id=$1 AND product_code=$2 AND status='paid'
+     LIMIT 1`,
+    [reading.id, `deep_insights_${category}`],
+  );
+  return !!order;
+}
+
+async function finishDeepInsightsPayment(order, userId, database = db) {
+  const reading = await database.one('SELECT * FROM readings WHERE id=$1', [order.reading_id]);
+  if (!reading) return { status: 'missing_reading' };
+  const ai = await getAiMechanismSettings(database);
+  const t = now();
+
+  if (!ai.autoGenerateOnPayment) {
+    await database.run(
+      `INSERT INTO notifications (id,user_id,type,message,created_at)
+       VALUES ($1,$2,'payment',$3,$4)`,
+      [id('ntf'), userId, 'Your payment was verified. Your Deep Insights report is queued for preparation.', t],
+    );
+    return { status: 'queued' };
+  }
+
+  const basic = reading.result_basic;
+  const generated = await generateAiReading(
+    {
+      type: reading.type,
+      question: reading.question,
+      cards: basic?.cards,
+      chart: reading.type === 'astrology_natal' ? basic : null,
+    },
+    { loadEndpoints: () => getAiEndpoints(database) },
+  );
+
+  if (!generated.ok) {
+    logger.error('Auto Deep Insights generation failed after verified payment', {
+      readingId: order.reading_id,
+      error: generated.error,
+    });
+    await database.run(
+      `INSERT INTO notifications (id,user_id,type,message,created_at)
+       VALUES ($1,$2,'payment',$3,$4)`,
+      [id('ntf'), userId, 'Your payment was verified. Your Deep Insights report is being prepared and will be ready soon.', t],
+    );
+    return { status: 'queued', error: generated.error };
+  }
+
+  await database.run(
+    'UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3',
+    [generated.text, t, order.reading_id],
+  );
+  await database.run(
+    `INSERT INTO notifications (id,user_id,type,message,created_at)
+     VALUES ($1,$2,'payment','Your Deep Insights report is ready.',$3)`,
+    [id('ntf'), userId, t],
+  );
+  return {
+    status: 'ready',
+    provider: generated.providerName,
+  };
 }
 
 // ══════════════════════════ AUTH ══════════════════════════
@@ -176,24 +253,53 @@ app.get('/api/readings', requireActive, ah(async (req, res) => {
 async function buildReadingView(r, forUserId) {
   const category = categoryOf(r.type);
   const owned = !r.user_id || r.user_id === forUserId;
-  const detailedUnlocked = r.status === 'detail_unlocked';
+  const detailAccess = detailAccessFromStatus(r.status);
 
-  let deepInsights = { ordered: false, paid: false, ready: !!r.deep_insights_report, pending: false, report: null, orderId: null };
+  let detailPayment = { orderId: null, orderStatus: null, amountCents: null };
+  let deepInsights = {
+    ordered: false,
+    paid: false,
+    ready: false,
+    pending: false,
+    submitted: false,
+    report: null,
+    orderId: null,
+    orderStatus: null,
+  };
   if (category) {
-    const code = `deep_insights_${category}`;
-    const order = await db.one(
-      'SELECT id, status FROM orders WHERE reading_id=$1 AND product_code=$2 ORDER BY created_at DESC LIMIT 1',
-      [r.id, code]
+    const detailOrder = await db.one(
+      `SELECT id,status,amount_cents FROM orders
+       WHERE reading_id=$1 AND product_code=$2
+       ORDER BY created_at DESC LIMIT 1`,
+      [r.id, `detail_${category}`],
     );
-    if (order) {
-      const paid = order.status === 'paid';
+    if (detailOrder) {
+      detailPayment = {
+        orderId: ['pending', DETAIL_TOBEPAID, 'failed'].includes(detailOrder.status)
+          ? detailOrder.id
+          : null,
+        orderStatus: detailOrder.status,
+        amountCents: detailOrder.amount_cents,
+      };
+    }
+
+    const deepOrder = await db.one(
+      `SELECT id,status,amount_cents FROM orders
+       WHERE reading_id=$1 AND product_code=$2
+       ORDER BY created_at DESC LIMIT 1`,
+      [r.id, `deep_insights_${category}`],
+    );
+    if (deepOrder) {
+      const paid = deepOrder.status === 'paid';
       deepInsights = {
         ordered: true,
         paid,
         ready: paid && !!r.deep_insights_report,
         pending: paid && !r.deep_insights_report,
+        submitted: deepOrder.status === DEEP_INSIGHTS_TOBEPAID,
         report: paid ? (r.deep_insights_report || null) : null,
-        orderId: order.status === 'pending' ? order.id : null,
+        orderId: !paid ? deepOrder.id : null,
+        orderStatus: deepOrder.status,
       };
     }
   }
@@ -208,8 +314,20 @@ async function buildReadingView(r, forUserId) {
     createdAt: r.created_at, owned,
     resultBasic: owned ? r.result_basic : null,
     simpleReport: owned ? (r.simple_report || null) : null,
-    detailedUnlocked, detailedReport: (owned && detailedUnlocked) ? r.detailed_report : null,
-    deepInsights: owned ? deepInsights : { ordered: false, paid: false, ready: false, pending: false, report: null, orderId: null },
+    detailedUnlocked: detailAccess.accessible,
+    detailedPaid: detailAccess.paid,
+    detailedReport: (owned && detailAccess.accessible) ? r.detailed_report : null,
+    detailPayment,
+    deepInsights: owned ? deepInsights : {
+      ordered: false,
+      paid: false,
+      ready: false,
+      pending: false,
+      submitted: false,
+      report: null,
+      orderId: null,
+      orderStatus: null,
+    },
     pricing,
   };
 }
@@ -253,7 +371,7 @@ app.post('/api/readings/:id/simple-report', optAuth, ah(async (req, res) => {
 app.get('/api/readings/:id/export-pdf', requireActive, ah(async (req, res) => {
   const r = await claimAndFetchReading(req.params.id, req.user.id);
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
-  if (r.status !== 'detail_unlocked' || !r.detailed_report) {
+  if (!detailAccessFromStatus(r.status).accessible || !r.detailed_report) {
     return res.status(402).json({ error: 'The detailed report is locked. Unlock it first.' });
   }
   res.setHeader('Content-Type', 'application/pdf');
@@ -297,16 +415,28 @@ app.post('/api/orders', requireActive, validate(S.createOrder), ah(async (req, r
   if (!reading) return res.status(404).json({ error: 'Reading not found.' });
   const category = categoryOf(reading.type);
   if (!category) return res.status(400).json({ error: 'This reading type has no purchasable reports.' });
-  if (tier === 'deep_insights' && reading.status !== 'detail_unlocked') {
+  if (tier === 'deep_insights' && !canGenerateDeepInsights(reading.status)) {
     return res.status(400).json({ error: 'Unlock the detailed report before ordering Deep Insights.' });
   }
+  const productCode = `${tier}_${category}`;
+  const existing = await db.one(
+    `SELECT * FROM orders
+     WHERE reading_id=$1 AND product_code=$2
+       AND status IN ('pending','failed','detail_tobepaid','deep_insights_tobepaid')
+     ORDER BY created_at DESC LIMIT 1`,
+    [reading.id, productCode],
+  );
+  if (existing) {
+    return res.json({ data: { ...existing, tier, category, reused: true } });
+  }
+
   const amountCents = await resolvePriceCents(db, category, tier);
   const orderId = id('ord');
   const t = now();
   await db.run(
     `INSERT INTO orders (id,user_id,reading_id,product_code,amount_cents,currency,status,created_at,updated_at)
      VALUES ($1,$2,$3,$4,$5,'USD','pending',$6,$6)`,
-    [orderId, req.user.id, readingId, `${tier}_${category}`, amountCents, t]
+    [orderId, req.user.id, readingId, productCode, amountCents, t]
   );
   res.status(201).json({ data: { id: orderId, amountCents, currency: 'USD', status: 'pending', tier, category } });
 }));
@@ -317,54 +447,56 @@ app.get('/api/orders/:id', requireActive, ah(async (req, res) => {
   res.json({ data: o });
 }));
 
-app.post('/api/orders/:id/simulate-sandbox-pay', requireActive, ah(async (req, res) => {
+app.post('/api/orders/:id/submit-payment', requireActive, validate(S.submitPayment), ah(async (req, res) => {
   const o = await db.one('SELECT * FROM orders WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   if (!o) return res.status(404).json({ error: 'Order not found.' });
-  if (o.status === 'paid') return res.json({ data: o });
-  const sim = simulateSandboxPayment(o);
+  if (o.status === 'paid') return res.status(400).json({ error: 'This payment is already verified.' });
+  if (isSubmittedOrderStatus(o.status)) return res.json({ data: { ...o, alreadySubmitted: true } });
+  if (!['pending', 'failed'].includes(o.status)) {
+    return res.status(400).json({ error: 'This order cannot be submitted for payment verification.' });
+  }
+
+  const parsed = parseProductCode(o.product_code);
+  if (!parsed) return res.status(400).json({ error: 'Unsupported order product.' });
+  const method = await getPaymentMethodById(db, req.body.paymentMethodId);
+  if (!method) return res.status(400).json({ error: 'Select an enabled payment method with a QR code.' });
+
+  if (o.reading_id) {
+    const reading = await db.one('SELECT id,status FROM readings WHERE id=$1', [o.reading_id]);
+    if (!reading) return res.status(400).json({ error: 'The reading for this order no longer exists.' });
+    if (parsed.tier === 'deep_insights' && !canGenerateDeepInsights(reading.status)) {
+      return res.status(400).json({ error: 'Deep Insights requires a verified detailed-report payment.' });
+    }
+  }
+
+  const nextStatus = verificationStatusForTier(parsed.tier);
   const t = now();
-  const [tier] = TIERS.filter((tr) => o.product_code.startsWith(`${tr}_`));
-
   await db.tx(async (tx) => {
-    await tx.run('UPDATE orders SET status=$1, paid_at=$2, updated_at=$2, channel=$3 WHERE id=$4', [sim.status, t, 'sandbox', o.id]);
+    await tx.run(
+      'UPDATE orders SET status=$1, channel=$2, updated_at=$3 WHERE id=$4',
+      [nextStatus, `qr:${method.id}`, t, o.id],
+    );
 
-    if (o.reading_id && tier === 'detail') {
+    if (o.reading_id && parsed.tier === 'detail') {
       const reading = await tx.one('SELECT * FROM readings WHERE id=$1', [o.reading_id]);
-      const detailedText = generateDetailedReport(reading);
-      await tx.run('UPDATE readings SET status=\'detail_unlocked\', detailed_report=$1, updated_at=$2 WHERE id=$3', [detailedText, t, o.reading_id]);
-      await tx.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
-        [id('ntf'), req.user.id, 'Your payment was received — the detailed report is now unlocked.', t]);
+      const detailedText = reading.detailed_report || generateDetailedReport(reading);
+      await tx.run(
+        `UPDATE readings
+         SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
+         WHERE id=$4`,
+        [DETAIL_TOBEPAID, detailedText, t, o.reading_id],
+      );
     }
 
-    if (o.reading_id && tier === 'deep_insights') {
-      const ai = await getAiMechanismSettings(tx);
-      if (ai.autoGenerateOnPayment) {
-        const reading = await tx.one('SELECT * FROM readings WHERE id=$1', [o.reading_id]);
-        const basic = reading.result_basic;
-        const gen = await generateAiReading(
-          { type: reading.type, question: reading.question, cards: basic?.cards, chart: reading.type === 'astrology_natal' ? basic : null },
-          { loadEndpoints: () => getAiEndpoints(tx) },
-        );
-        if (gen.ok) {
-          await tx.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [gen.text, t, o.reading_id]);
-          await tx.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
-            [id('ntf'), req.user.id, 'Your Deep Insights report is ready.', t]);
-        } else {
-          // AI call failed (e.g. no API key configured) — leave it pending
-          // for an admin to generate or write manually; don't fail the payment.
-          logger.error('Auto Deep Insights generation failed after payment', { readingId: o.reading_id, error: gen.error });
-          await tx.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
-            [id('ntf'), req.user.id, 'Your payment was received — your Deep Insights report is being prepared and will be ready soon.', t]);
-        }
-      } else {
-        await tx.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
-          [id('ntf'), req.user.id, 'Your payment was received — your Deep Insights report is being prepared by our team and will be ready soon.', t]);
-      }
-    }
+    await tx.run(
+      `INSERT INTO notifications (id,user_id,type,message,created_at)
+       VALUES ($1,$2,'payment',$3,$4)`,
+      [id('ntf'), req.user.id, 'Your payment was submitted and is waiting for admin verification.', t],
+    );
   });
 
   const updated = await db.one('SELECT * FROM orders WHERE id=$1', [o.id]);
-  res.json({ data: updated });
+  res.json({ data: { ...updated, paymentMethod: method.name } });
 }));
 
 // TODO(live): real gateway webhook verification per channel.
@@ -520,6 +652,107 @@ app.post('/api/admin/orders/:id/restore', requirePerm('orders'), ah(async (req, 
   res.json({ data: { restored: true } });
 }));
 
+app.post('/api/admin/orders/:id/verify-payment', requirePerm('orders'), ah(async (req, res) => {
+  const order = await db.one('SELECT * FROM orders WHERE id=$1 AND deleted=false', [req.params.id]);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  if (order.status === 'paid') return res.json({ data: { order, alreadyVerified: true } });
+  if (!isSubmittedOrderStatus(order.status)) {
+    return res.status(400).json({ error: 'Only submitted QR payments can be verified.' });
+  }
+
+  const parsed = parseProductCode(order.product_code);
+  if (!parsed || !order.reading_id) {
+    return res.status(400).json({ error: 'The order is missing its report details.' });
+  }
+
+  const t = now();
+  await db.tx(async (tx) => {
+    await tx.run(
+      'UPDATE orders SET status=\'paid\', paid_at=$1, updated_at=$1 WHERE id=$2',
+      [t, order.id],
+    );
+    const reading = await tx.one('SELECT * FROM readings WHERE id=$1', [order.reading_id]);
+    if (!reading) throw new Error('Reading not found for verified order.');
+
+    if (parsed.tier === 'detail') {
+      const detailedText = reading.detailed_report || generateDetailedReport(reading);
+      await tx.run(
+        `UPDATE readings
+         SET status=$1, detailed_report=COALESCE(detailed_report,$2), updated_at=$3
+         WHERE id=$4`,
+        [DETAIL_PAID, detailedText, t, reading.id],
+      );
+    } else if (!canGenerateDeepInsights(reading.status)) {
+      throw new Error('Deep Insights cannot be verified before the detailed report is paid.');
+    }
+
+    await tx.run(
+      `INSERT INTO audit_logs (id,admin_id,admin_name,action,target,meta,created_at)
+       VALUES ($1,$2,$3,'payment.verify',$4,$5,$6)`,
+      [
+        id('log'), req.admin.id, req.admin.username, order.id,
+        JSON.stringify({
+          productCode: order.product_code,
+          amountCents: order.amount_cents,
+          userId: order.user_id,
+        }), t,
+      ],
+    );
+  });
+
+  if (parsed.tier === 'detail') {
+    await db.run(
+      `INSERT INTO notifications (id,user_id,type,message,created_at)
+       VALUES ($1,$2,'payment','Your detail payment was verified. The detailed report is now paid, and Deep Insights is available.',$3)`,
+      [id('ntf'), order.user_id, t],
+    );
+  } else {
+    await finishDeepInsightsPayment(order, order.user_id, db);
+  }
+
+  const updated = await db.one('SELECT * FROM orders WHERE id=$1', [order.id]);
+  res.json({ data: { order: updated, verified: true } });
+}));
+
+app.post('/api/admin/orders/:id/reject-payment', requirePerm('orders'), ah(async (req, res) => {
+  const order = await db.one('SELECT * FROM orders WHERE id=$1 AND deleted=false', [req.params.id]);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  if (!isSubmittedOrderStatus(order.status)) {
+    return res.status(400).json({ error: 'Only submitted QR payments can be rejected.' });
+  }
+  const parsed = parseProductCode(order.product_code);
+  const t = now();
+
+  await db.tx(async (tx) => {
+    await tx.run(
+      'UPDATE orders SET status=\'failed\', updated_at=$1 WHERE id=$2',
+      [t, order.id],
+    );
+    if (parsed?.tier === 'detail' && order.reading_id) {
+      await tx.run(
+        `UPDATE readings SET status=$1, updated_at=$2
+         WHERE id=$3 AND status=$4`,
+        [DETAIL_UNPAID, t, order.reading_id, DETAIL_TOBEPAID],
+      );
+    }
+    await tx.run(
+      `INSERT INTO audit_logs (id,admin_id,admin_name,action,target,meta,created_at)
+       VALUES ($1,$2,$3,'payment.reject',$4,$5,$6)`,
+      [
+        id('log'), req.admin.id, req.admin.username, order.id,
+        JSON.stringify({ productCode: order.product_code, amountCents: order.amount_cents }), t,
+      ],
+    );
+  });
+
+  await db.run(
+    `INSERT INTO notifications (id,user_id,type,message,created_at)
+     VALUES ($1,$2,'payment','Your submitted payment could not be verified. Please check the payment details and try again.',$3)`,
+    [id('ntf'), order.user_id, t],
+  );
+  res.json({ data: { rejected: true } });
+}));
+
 app.get('/api/admin/readings', requirePerm('readings'), ah(async (req, res) => {
   const page = parsePagination(req.query);
   if (page.error) return res.status(400).json({ error: page.error });
@@ -533,7 +766,12 @@ app.get('/api/admin/readings', requirePerm('readings'), ah(async (req, res) => {
   });
 }));
 app.get('/api/admin/readings/:id', requirePerm('readings'), ah(async (req, res) => {
-  const r = await db.one('SELECT * FROM readings WHERE id=$1', [req.params.id]);
+  const r = await db.one(
+    `SELECT r.*,u.email AS user_email
+     FROM readings r LEFT JOIN users u ON u.id=r.user_id
+     WHERE r.id=$1`,
+    [req.params.id],
+  );
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
   res.json({ data: r });
 }));
@@ -543,9 +781,11 @@ app.get('/api/admin/readings/:id', requirePerm('readings'), ah(async (req, res) 
 app.get('/api/admin/deep-insights-queue', requirePerm(['readings', 'orders']), ah(async (_req, res) => {
   const rows = await db.all(`
     SELECT o.id AS order_id, o.product_code, o.amount_cents, o.paid_at,
-           r.id AS reading_id, r.type, r.question, r.created_at AS reading_created_at
+           r.id AS reading_id, r.type, r.question, r.created_at AS reading_created_at,
+           u.email AS user_email
     FROM orders o
     JOIN readings r ON r.id = o.reading_id
+    JOIN users u ON u.id = o.user_id
     WHERE o.product_code LIKE 'deep_insights_%' AND o.status='paid' AND r.deep_insights_report IS NULL
     ORDER BY o.paid_at ASC
   `);
@@ -555,6 +795,9 @@ app.get('/api/admin/deep-insights-queue', requirePerm(['readings', 'orders']), a
 app.post('/api/admin/readings/:id/deep-insights/generate-ai', requirePerm(['readings', 'orders']), ah(async (req, res) => {
   const r = await db.one('SELECT * FROM readings WHERE id=$1', [req.params.id]);
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
+  if (!canGenerateDeepInsights(r.status) || !(await hasPaidDeepInsightsOrder(db, r))) {
+    return res.status(402).json({ error: 'A verified Deep Insights payment is required before generation.' });
+  }
   const basic = r.result_basic;
   const gen = await generateAiReading(
     { type: r.type, question: r.question, cards: basic?.cards, chart: r.type === 'astrology_natal' ? basic : null },
@@ -565,8 +808,11 @@ app.post('/api/admin/readings/:id/deep-insights/generate-ai', requirePerm(['read
   res.json({ data: { deepInsightsReport: gen.text } });
 }));
 app.post('/api/admin/readings/:id/deep-insights/save-manual', requirePerm(['readings', 'orders']), validate(S.saveAiText), ah(async (req, res) => {
-  const r = await db.one('SELECT id, user_id FROM readings WHERE id=$1', [req.params.id]);
+  const r = await db.one('SELECT id,user_id,type,status FROM readings WHERE id=$1', [req.params.id]);
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
+  if (!canGenerateDeepInsights(r.status) || !(await hasPaidDeepInsightsOrder(db, r))) {
+    return res.status(402).json({ error: 'A verified Deep Insights payment is required before saving the report.' });
+  }
   await db.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [req.body.text, now(), r.id]);
   if (r.user_id) {
     await db.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',

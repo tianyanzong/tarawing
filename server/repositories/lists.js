@@ -2,13 +2,23 @@
 
 const { buildPage } = require('../utils/pagination');
 
-async function queryPage(database, { select, from, where = [], params = [], limit, cursor }) {
+async function queryPage(database, {
+  select,
+  from,
+  where = [],
+  params = [],
+  limit,
+  cursor,
+  cursorPrefix = '',
+}) {
   const queryParams = [...params];
   const clauses = [...where];
+  const createdAt = `${cursorPrefix}created_at`;
+  const id = `${cursorPrefix}id`;
 
   if (cursor) {
     queryParams.push(cursor.createdAt, cursor.id);
-    clauses.push(`(created_at,id) < ($${queryParams.length - 1},$${queryParams.length})`);
+    clauses.push(`(${createdAt},${id}) < ($${queryParams.length - 1},$${queryParams.length})`);
   }
 
   queryParams.push(limit + 1);
@@ -16,7 +26,7 @@ async function queryPage(database, { select, from, where = [], params = [], limi
     `SELECT ${select}
      FROM ${from}
      ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
-     ORDER BY created_at DESC,id DESC
+     ORDER BY ${createdAt} DESC,${id} DESC
      LIMIT $${queryParams.length}`,
     queryParams,
   );
@@ -58,20 +68,21 @@ function listAdminUsers(database, { q = '', limit, cursor = null }) {
 }
 
 function listAdminOrders(database, { status = '', limit, cursor = null }) {
-  const where = ['deleted=false'];
+  const where = ['o.deleted=false'];
   const params = [];
   if (status) {
     params.push(status);
-    where.push(`status=$${params.length}`);
+    where.push(`o.status=$${params.length}`);
   }
 
   return queryPage(database, {
-    select: '*',
-    from: 'orders',
+    select: 'o.*,u.email AS user_email',
+    from: 'orders o LEFT JOIN users u ON u.id=o.user_id',
     where,
     params,
     limit,
     cursor,
+    cursorPrefix: 'o.',
   });
 }
 
@@ -80,16 +91,17 @@ function listAdminReadings(database, { type = '', limit, cursor = null }) {
   const params = [];
   if (type) {
     params.push(type);
-    where.push(`type=$${params.length}`);
+    where.push(`r.type=$${params.length}`);
   }
 
   return queryPage(database, {
-    select: 'id,user_id,type,question,status,created_at',
-    from: 'readings',
+    select: 'r.id,r.user_id,r.type,r.question,r.status,r.created_at,u.email AS user_email',
+    from: 'readings r LEFT JOIN users u ON u.id=r.user_id',
     where,
     params,
     limit,
     cursor,
+    cursorPrefix: 'r.',
   });
 }
 

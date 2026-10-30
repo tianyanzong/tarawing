@@ -61,6 +61,18 @@ async function getAiEndpoints(db) {
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
+async function getPaymentMethodById(db, paymentMethodId) {
+  const row = await db.one("SELECT value FROM settings WHERE key='site'");
+  const methods = row?.value?.paymentMethods;
+  if (!Array.isArray(methods)) return null;
+  return methods.find((method) => (
+    method?.id === paymentMethodId
+    && method.enabled
+    && typeof method.qrImage === 'string'
+    && method.qrImage
+  )) || null;
+}
+
 function sandboxSign(payload) {
   const secret = process.env.PAYMENT_SANDBOX_SECRET || 'change-me-sandbox-signing-key';
   return crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
@@ -79,6 +91,6 @@ function simulateSandboxPayment(order) {
 
 module.exports = {
   TIERS, TIER_LABEL, productCode, parseProductCode,
-  resolvePriceCents, getAiEndpoints, getAiMechanismSettings,
+  resolvePriceCents, getAiEndpoints, getAiMechanismSettings, getPaymentMethodById,
   simulateSandboxPayment, sandboxSign,
 };

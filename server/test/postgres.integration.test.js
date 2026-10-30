@@ -120,9 +120,11 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   const paidOrderPage = await listAdminOrders(database, { status: 'paid', limit: 1 });
   assert.equal(paidOrderPage.items.length, 1);
   assert.equal(paidOrderPage.items[0].status, 'paid');
+  assert.equal(paidOrderPage.items[0].user_email, 'demo@tarawing.app');
 
   const tarotPage = await listAdminReadings(database, { type: 'tarot', limit: 25 });
   assert.ok(tarotPage.items.some((row) => row.id === 'demo_rd_tarot_fool'));
+  assert.ok(tarotPage.items.every((row) => row.user_email === 'demo@tarawing.app'));
 
   const dto = toApiDto(stableReading);
   assert.equal(dto.deepInsightsReport, stableReading.deep_insights_report);

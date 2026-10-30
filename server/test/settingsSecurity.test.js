@@ -10,9 +10,11 @@ const {
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,
+  mergeSmtpSettings,
   publicPaymentMethods,
   publicSettings,
   sanitizeAiEndpointsForAdmin,
+  sanitizeSmtpForAdmin,
 } = require('../services/settingsSecurity');
 
 test('encrypts and decrypts an API key without retaining plaintext', () => {
@@ -144,4 +146,40 @@ test('publishes only enabled QR methods and redacts audit settings', () => {
   assert.equal(JSON.stringify(audit).includes('sk-secret'), false);
   assert.equal(JSON.stringify(audit).includes('data:image'), false);
   assert.equal(audit.paymentMethods[0].name, 'PayPal');
+});
+
+test('preserves and redacts the SMTP password', () => {
+  const existing = {
+    enabled: true,
+    host: 'smtp.example.com',
+    port: 587,
+    secure: false,
+    username: 'mailer',
+    fromName: 'Tarawing',
+    fromEmail: 'hello@tarawing.app',
+    replyTo: '',
+    publicSiteUrl: 'https://tarawing.app',
+    passwordEncrypted: encryptSecret('smtp-old-password'),
+  };
+  const merged = mergeSmtpSettings({
+    enabled: true,
+    host: 'smtp.example.com',
+    port: 465,
+    secure: true,
+    username: 'mailer',
+    fromName: 'Tarawing',
+    fromEmail: 'hello@tarawing.app',
+    replyTo: 'support@tarawing.app',
+    publicSiteUrl: 'https://tarawing.app',
+  }, existing);
+
+  assert.equal(decryptSecret(merged.passwordEncrypted), 'smtp-old-password');
+  const sanitized = sanitizeSmtpForAdmin(merged);
+  assert.equal(sanitized.hasPassword, true);
+  assert.equal('passwordEncrypted' in sanitized, false);
+  assert.equal('password' in sanitized, false);
+
+  const audit = auditSettings({ smtp: merged });
+  assert.equal(JSON.stringify(audit).includes('smtp-old-password'), false);
+  assert.equal(JSON.stringify(audit).includes('enc:v1:'), false);
 });

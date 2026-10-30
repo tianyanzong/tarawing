@@ -50,6 +50,7 @@ const { dtoResponse } = require('./utils/dto');
 const {
   auditSettings,
   mergeAiEndpoints,
+  mergeSmtpSettings,
   publicPaymentMethods,
   publicSettings,
   settingsForAdmin,
@@ -916,6 +917,10 @@ app.put('/api/admin/settings', requirePerm('settings'), validate(S.siteSettings)
       return res.status(400).json({ error: 'Every enabled payment method needs a QR image.' });
     }
     next.paymentMethods = paymentMethods;
+  }
+
+  if (incoming.smtp) {
+    next.smtp = mergeSmtpSettings(incoming.smtp, current.smtp || {});
   }
 
   await db.run("INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2) ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2", [JSON.stringify(next), now()]);

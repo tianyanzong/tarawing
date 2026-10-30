@@ -16,6 +16,17 @@ const PUBLIC_SETTING_KEYS = [
   'donationEnabled',
   'donationMessage',
 ];
+const DEFAULT_SMTP = {
+  enabled: false,
+  host: '',
+  port: 587,
+  secure: false,
+  username: '',
+  fromName: 'Tarawing',
+  fromEmail: '',
+  replyTo: '',
+  publicSiteUrl: 'http://localhost:3300',
+};
 
 function encryptionKey() {
   const source = process.env.SETTINGS_ENCRYPTION_KEY || process.env.JWT_SECRET;
@@ -53,7 +64,7 @@ function decryptSecret(value) {
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
   } catch {
-    throw new Error('The stored AI API key could not be decrypted.');
+    throw new Error('The stored secret could not be decrypted.');
   }
 }
 
@@ -97,14 +108,49 @@ function mergeAiEndpoints(incoming, existing = []) {
   });
 }
 
+function mergeSmtpSettings(incoming = {}, existing = {}) {
+  const replacementPassword = typeof incoming.password === 'string' ? incoming.password.trim() : '';
+  return {
+    enabled: incoming.enabled === true,
+    host: String(incoming.host || ''),
+    port: Number(incoming.port || DEFAULT_SMTP.port),
+    secure: incoming.secure === true,
+    username: String(incoming.username || ''),
+    passwordEncrypted: replacementPassword
+      ? encryptSecret(replacementPassword)
+      : (existing.passwordEncrypted || ''),
+    fromName: String(incoming.fromName || DEFAULT_SMTP.fromName),
+    fromEmail: String(incoming.fromEmail || ''),
+    replyTo: String(incoming.replyTo || ''),
+    publicSiteUrl: String(incoming.publicSiteUrl || DEFAULT_SMTP.publicSiteUrl),
+  };
+}
+
+function sanitizeSmtpForAdmin(smtp = {}) {
+  return {
+    enabled: smtp.enabled === true,
+    host: smtp.host || '',
+    port: Number(smtp.port || DEFAULT_SMTP.port),
+    secure: smtp.secure === true,
+    username: smtp.username || '',
+    fromName: smtp.fromName || DEFAULT_SMTP.fromName,
+    fromEmail: smtp.fromEmail || '',
+    replyTo: smtp.replyTo || '',
+    publicSiteUrl: smtp.publicSiteUrl || DEFAULT_SMTP.publicSiteUrl,
+    hasPassword: !!smtp.passwordEncrypted,
+  };
+}
+
 function settingsForAdmin(settings = {}) {
   return {
     ...settings,
+    requireEmailVerification: settings.requireEmailVerification === true,
     aiMechanism: {
       autoGenerateOnPayment: settings.aiMechanism?.autoGenerateOnPayment !== false,
       endpoints: sanitizeAiEndpointsForAdmin(settings.aiMechanism?.endpoints),
     },
     paymentMethods: Array.isArray(settings.paymentMethods) ? settings.paymentMethods : [],
+    smtp: sanitizeSmtpForAdmin(settings.smtp),
   };
 }
 
@@ -145,6 +191,15 @@ function auditSettings(settings = {}) {
         order: method.order,
       }))
       : [],
+    smtp: settings.smtp ? {
+      enabled: settings.smtp.enabled === true,
+      host: settings.smtp.host || '',
+      port: Number(settings.smtp.port || DEFAULT_SMTP.port),
+      secure: settings.smtp.secure === true,
+      username: settings.smtp.username || '',
+      fromEmail: settings.smtp.fromEmail || '',
+      hasPassword: !!settings.smtp.passwordEncrypted,
+    } : null,
   };
 }
 
@@ -153,8 +208,10 @@ module.exports = {
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,
+  mergeSmtpSettings,
   publicPaymentMethods,
   publicSettings,
   sanitizeAiEndpointsForAdmin,
+  sanitizeSmtpForAdmin,
   settingsForAdmin,
 };

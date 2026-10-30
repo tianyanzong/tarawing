@@ -61,7 +61,7 @@ async function dropAll(database = db) {
   await new Promise((r) => setTimeout(r, 3000));
   await database.run(`DROP TABLE IF EXISTS
     audit_logs, faq, articles, notifications, consultations, orders,
-    readings, admins, settings, users CASCADE`);
+    readings, auth_tokens, admins, settings, schema_migrations, users CASCADE`);
   logger.warn('All tables dropped');
 }
 
@@ -73,6 +73,11 @@ async function initSchema(database = db) {
     await dropAll(database);
   }
 
+  await database.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+    key         TEXT PRIMARY KEY,
+    applied_at  TEXT NOT NULL
+  )`);
+
   await database.run(`CREATE TABLE IF NOT EXISTS users (
     id           TEXT PRIMARY KEY,
     name         TEXT NOT NULL,
@@ -83,6 +88,32 @@ async function initSchema(database = db) {
     created_at   TEXT NOT NULL,
     updated_at   TEXT NOT NULL
   )`);
+  await database.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT');
+  const verifiedBackfill = await database.one(
+    'SELECT key FROM schema_migrations WHERE key=$1',
+    ['users.email_verified_at_backfill_v1'],
+  );
+  if (!verifiedBackfill) {
+    await database.run(
+      'UPDATE users SET email_verified_at=COALESCE(updated_at,created_at) WHERE email_verified_at IS NULL',
+    );
+    await database.run(
+      'INSERT INTO schema_migrations (key,applied_at) VALUES ($1,$2)',
+      ['users.email_verified_at_backfill_v1', now()],
+    );
+  }
+
+  await database.run(`CREATE TABLE IF NOT EXISTS auth_tokens (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL UNIQUE,
+    purpose     TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    used_at     TEXT,
+    created_at  TEXT NOT NULL
+  )`);
+  await database.run(`CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_purpose
+    ON auth_tokens(user_id,purpose,created_at DESC)`);
 
   await database.run(`CREATE TABLE IF NOT EXISTS admins (
     id           TEXT PRIMARY KEY,
@@ -116,12 +147,14 @@ async function initSchema(database = db) {
     result_basic          JSONB,
     simple_report         TEXT,
     detailed_report       TEXT,
+    ai_prompt             TEXT,
     deep_insights_report  TEXT,
     admin_notes           TEXT,
     share_key             TEXT,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL
   )`);
+  await database.run('ALTER TABLE readings ADD COLUMN IF NOT EXISTS ai_prompt TEXT');
   await database.run(`CREATE INDEX IF NOT EXISTS idx_readings_user ON readings(user_id)`);
   await database.run(`CREATE INDEX IF NOT EXISTS idx_readings_type ON readings(type)`);
   await database.run(`CREATE INDEX IF NOT EXISTS idx_readings_share_key ON readings(share_key)`);
@@ -250,9 +283,14 @@ async function seedDemoData(database = db) {
     const hash = await bcrypt.hash(DEMO_USER.password, 10);
     user = { id: id('usr') };
     await database.run(
-      `INSERT INTO users (id,name,email,password,role,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,'normal',$5,$5)`,
+      `INSERT INTO users (id,name,email,password,role,email_verified_at,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,'normal',$5,$5,$5)`,
       [user.id, DEMO_USER.name, DEMO_USER.email, hash, now()]
+    );
+  } else {
+    await database.run(
+      'UPDATE users SET email_verified_at=COALESCE(email_verified_at,updated_at) WHERE id=$1',
+      [user.id],
     );
   }
 
@@ -342,6 +380,19 @@ async function seedSettings(database = db) {
       endpoints: Array.isArray(value.aiMechanism?.endpoints) ? value.aiMechanism.endpoints : [],
     };
     value.paymentMethods = Array.isArray(value.paymentMethods) ? value.paymentMethods : [];
+    value.requireEmailVerification = value.requireEmailVerification === true;
+    value.smtp = {
+      enabled: false,
+      host: '',
+      port: 587,
+      secure: false,
+      username: '',
+      fromName: 'Tarawing',
+      fromEmail: '',
+      replyTo: '',
+      publicSiteUrl: 'http://localhost:3300',
+      ...(value.smtp || {}),
+    };
     const next = JSON.stringify(value);
     if (next !== JSON.stringify(existing.value)) {
       await database.run(
@@ -359,6 +410,7 @@ async function seedSettings(database = db) {
       donationEnabled: true,
       donationMessage: 'If this reading resonated with you, Tarawing runs on free will and free coffee. Any support keeps the lights (and the stars) on.',
       supportEmail: 'support@tarawing.app',
+      requireEmailVerification: false,
       // Per-category pricing (cents) for the two paid report tiers.
       // Categories: tarot (single draws), astrology (natal chart + seven
       // planets), spreads (the Sacred Layout Engine). Admin-editable at
@@ -376,6 +428,18 @@ async function seedSettings(database = db) {
         endpoints: [],
       },
       paymentMethods: [],
+      smtp: {
+        enabled: false,
+        host: '',
+        port: 587,
+        secure: false,
+        username: '',
+        passwordEncrypted: '',
+        fromName: 'Tarawing',
+        fromEmail: '',
+        replyTo: '',
+        publicSiteUrl: 'http://localhost:3300',
+      },
     }),
     now(),
   ]);

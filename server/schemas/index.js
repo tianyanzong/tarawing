@@ -16,6 +16,11 @@ const qrImage = z.string()
     (value) => value === '' || /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value),
     { message: 'QR image must be a PNG, JPEG, or WebP data URL.' },
   );
+const publicSiteUrl = z.string().url().refine(
+  (value) => ['http:', 'https:'].includes(new URL(value).protocol),
+  { message: 'Public site URL must use HTTP or HTTPS.' },
+);
+const optionalEmail = z.union([z.literal(''), z.string().email()]);
 
 const aiEndpoint = z.object({
   id: z.string().min(1).max(80),
@@ -43,6 +48,27 @@ const paymentMethod = z.object({
   enabled: z.boolean(),
   qrImage: qrImage.optional().default(''),
   order: z.number().int().min(0),
+});
+
+const smtpSettings = z.object({
+  enabled: z.boolean(),
+  host: z.string().max(255),
+  port: z.number().int().min(1).max(65535),
+  secure: z.boolean(),
+  username: z.string().max(255),
+  password: z.string().max(4096).optional(),
+  hasPassword: z.boolean().optional(),
+  fromName: z.string().min(1).max(120),
+  fromEmail: optionalEmail,
+  replyTo: optionalEmail,
+  publicSiteUrl,
+}).superRefine((value, ctx) => {
+  if (value.enabled && !value.host) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['host'], message: 'SMTP host is required when email is enabled.' });
+  }
+  if (value.enabled && !value.fromEmail) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fromEmail'], message: 'From email is required when email is enabled.' });
+  }
 });
 
 const S = {
@@ -73,6 +99,22 @@ const S = {
   changePassword: z.object({
     currentPassword: z.string().min(1),
     newPassword: z.string().min(6).max(100),
+  }),
+  forgotPassword: z.object({
+    email: z.string().email(),
+  }),
+  resetPassword: z.object({
+    token: z.string().min(32).max(256),
+    newPassword: z.string().min(6).max(100),
+  }),
+  verifyEmail: z.object({
+    token: z.string().min(32).max(256),
+  }),
+  resendVerification: z.object({
+    email: z.string().email(),
+  }),
+  smtpTest: z.object({
+    to: z.string().email(),
   }),
 
   createReading: z.object({
@@ -133,6 +175,7 @@ const S = {
     donationEnabled: z.boolean().optional(),
     donationMessage: z.string().max(1000).optional(),
     supportEmail: z.string().email().optional(),
+    requireEmailVerification: z.boolean().optional(),
     pricing: z.object({
       tarot: z.object({ detail: z.number().int().min(0), deepInsights: z.number().int().min(0) }),
       astrology: z.object({ detail: z.number().int().min(0), deepInsights: z.number().int().min(0) }),
@@ -143,6 +186,7 @@ const S = {
       endpoints: z.array(aiEndpoint).max(20).optional(),
     }).optional(),
     paymentMethods: z.array(paymentMethod).max(20).optional(),
+    smtp: smtpSettings.optional(),
   }).passthrough(), // allow unknown fields through rather than stripping them silently
 };
 

@@ -56,3 +56,46 @@ test('accepts supported QR images and rejects other image types', () => {
   assert.equal(png.success, true);
   assert.equal(svg.success, false);
 });
+
+test('accepts SMTP settings and defaults verification to optional', () => {
+  const parsed = S.siteSettings.parse({
+    requireEmailVerification: true,
+    smtp: {
+      enabled: true,
+      host: 'smtp.example.com',
+      port: 587,
+      secure: false,
+      username: 'mailer',
+      password: 'secret',
+      fromName: 'Tarawing',
+      fromEmail: 'hello@tarawing.app',
+      replyTo: '',
+      publicSiteUrl: 'https://tarawing.app',
+    },
+  });
+
+  assert.equal(parsed.requireEmailVerification, true);
+  assert.equal(parsed.smtp.port, 587);
+  assert.equal(parsed.smtp.password, 'secret');
+});
+
+test('rejects invalid SMTP ports and public site protocols', () => {
+  const base = {
+    enabled: true,
+    host: 'smtp.example.com',
+    port: 70000,
+    secure: false,
+    username: '',
+    fromName: 'Tarawing',
+    fromEmail: 'hello@tarawing.app',
+    replyTo: '',
+    publicSiteUrl: 'ftp://tarawing.app',
+  };
+  const invalidPort = S.siteSettings.safeParse({ smtp: base });
+  const invalidProtocol = S.siteSettings.safeParse({
+    smtp: { ...base, port: 587, publicSiteUrl: 'ftp://tarawing.app' },
+  });
+
+  assert.equal(invalidPort.success, false);
+  assert.equal(invalidProtocol.success, false);
+});

@@ -23,6 +23,7 @@ follows. `docs/PROGRESS.md` has the full batch-by-batch build log.
 - **AI readings**: calls admin-configured Anthropic, OpenAI, DeepSeek, or
   OpenAI-compatible APIs through `server/services/aiReading.js`.
 - **Payments**: admin-managed QR methods with manual admin verification.
+- **Email**: Nodemailer using SMTP credentials managed in Admin settings.
 
 ## Ports
 
@@ -126,6 +127,11 @@ redaction. Deep Insights generation now tries enabled Anthropic, OpenAI,
 DeepSeek, or custom OpenAI-compatible providers in configured order, falling
 back after failures. The settings screens and admin payment-verification
 workflow are added in the following implementation batches.
+
+The account model now supports optional mandatory email verification and
+single-use email tokens for verification and password recovery. SMTP settings
+and their password are stored with the existing secret-protection rules; the
+mail flow and settings UI are added in the following batches.
 
 ## API DTOs
 

@@ -659,6 +659,18 @@ promise. Corrected:
 - [x] Ran backend tests/build, client type-check/unit tests/build, and the full
       Playwright suite.
 
+## Batch 35 — SMTP, email verification, and report prompts, part 1: data foundation (DONE)
+- [x] Added the approved server-only `nodemailer` dependency.
+- [x] Added one-time auth-token storage with SHA-256 hashes, 30-minute expiry,
+      token invalidation, and atomic single-use consumption.
+- [x] Added user email-verification state with a one-time migration that marks
+      existing accounts verified.
+- [x] Added encrypted SMTP settings, admin redaction, and audit redaction.
+- [x] Added the default-off `requireEmailVerification` setting.
+- [x] Added `readings.ai_prompt` for the later admin-only report prompt work.
+- [x] Added unit and PostgreSQL integration coverage for the migration, SMTP
+      secret handling, and auth-token storage.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

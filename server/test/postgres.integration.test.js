@@ -22,6 +22,9 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   const {
     listAdminOrders, listAdminReadings, listAdminUsers, listUserReadings,
   } = require('../repositories/lists');
+  const {
+    consumeAuthToken, createAuthToken, hashAuthToken,
+  } = require('../services/authTokenService');
 
   const client = new Client({ connectionString });
   await client.connect();
@@ -66,11 +69,30 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   assert.equal(settings.value.siteName, 'Tarawing');
   assert.deepEqual(settings.value.aiMechanism.endpoints, []);
   assert.deepEqual(settings.value.paymentMethods, []);
+  assert.equal(settings.value.requireEmailVerification, false);
+  assert.equal(settings.value.smtp.enabled, false);
   const normalizedFaq = await database.one('SELECT question FROM faq WHERE id=$1', ['legacy_brand_faq']);
   assert.equal(normalizedFaq.question, 'Tarawing legacy question');
 
   const user = await database.one('SELECT * FROM users WHERE email=$1', ['demo@tarawing.app']);
   assert.ok(user);
+  assert.ok(user.email_verified_at);
+  const migration = await database.one(
+    'SELECT key FROM schema_migrations WHERE key=$1',
+    ['users.email_verified_at_backfill_v1'],
+  );
+  assert.ok(migration);
+
+  const reset = await createAuthToken(database, user.id, 'password_reset');
+  const storedReset = await database.one(
+    'SELECT token_hash FROM auth_tokens WHERE user_id=$1 AND purpose=$2',
+    [user.id, 'password_reset'],
+  );
+  assert.equal(storedReset.token_hash, hashAuthToken(reset.token));
+  assert.notEqual(storedReset.token_hash, reset.token);
+  const consumedUser = await consumeAuthToken(database, reset.token, 'password_reset');
+  assert.equal(consumedUser.id, user.id);
+  assert.equal(await consumeAuthToken(database, reset.token, 'password_reset'), null);
 
   for (const table of ['readings', 'orders', 'notifications', 'consultations']) {
     const count = await database.one(`SELECT COUNT(*)::int AS count FROM ${table} WHERE user_id=$1`, [user.id]);
@@ -81,6 +103,7 @@ integrationTest('demo seed, DTOs, and cursor queries work against PostgreSQL', a
   assert.equal(stableReading.status, 'detail_paid');
   assert.ok(stableReading.detailed_report);
   assert.ok(stableReading.deep_insights_report);
+  assert.equal(stableReading.ai_prompt, null);
 
   await database.run(
     `UPDATE readings SET status='detail_unlocked' WHERE id=$1`,

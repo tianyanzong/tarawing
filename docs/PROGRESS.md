@@ -597,6 +597,16 @@ promise. Corrected:
 - [x] Added settings security and schema tests. The old sandbox send/report UI
       remains in place until the later route and client batches replace it.
 
+## Batch 30 — Admin payments and AI providers, part 2: ordered provider fallback (DONE)
+- [x] Replaced the environment-driven Anthropic call with provider entries
+      loaded from admin settings.
+- [x] Added Anthropic, OpenAI, DeepSeek, and custom OpenAI-compatible request
+      adapters.
+- [x] Added ordered fallback after network errors, non-2xx responses, malformed
+      JSON, missing keys, and empty provider output.
+- [x] Added tests for provider ordering, disabled entries, request construction,
+      and redacted aggregate errors.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: sandbox only, Stripe/PayPal live integration marked as `TODO(live)`

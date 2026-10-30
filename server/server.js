@@ -30,7 +30,7 @@ const { generateAiReading } = require('./services/aiReading');
 const { generateSimpleReport, generateDetailedReport } = require('./services/reportService');
 const { renderReportPdf } = require('./services/pdfService');
 const {
-  TIERS, resolvePriceCents, getAiMechanismSettings, simulateSandboxPayment,
+  TIERS, resolvePriceCents, getAiEndpoints, getAiMechanismSettings, simulateSandboxPayment,
 } = require('./services/paymentService');
 const { SPREADS } = require('./data/spreads');
 const { categoryOf, CATEGORIES } = require('./data/categories');
@@ -341,7 +341,10 @@ app.post('/api/orders/:id/simulate-sandbox-pay', requireActive, ah(async (req, r
       if (ai.autoGenerateOnPayment) {
         const reading = await tx.one('SELECT * FROM readings WHERE id=$1', [o.reading_id]);
         const basic = reading.result_basic;
-        const gen = await generateAiReading({ type: reading.type, question: reading.question, cards: basic?.cards, chart: reading.type === 'astrology_natal' ? basic : null });
+        const gen = await generateAiReading(
+          { type: reading.type, question: reading.question, cards: basic?.cards, chart: reading.type === 'astrology_natal' ? basic : null },
+          { loadEndpoints: () => getAiEndpoints(tx) },
+        );
         if (gen.ok) {
           await tx.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [gen.text, t, o.reading_id]);
           await tx.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
@@ -553,7 +556,10 @@ app.post('/api/admin/readings/:id/deep-insights/generate-ai', requirePerm(['read
   const r = await db.one('SELECT * FROM readings WHERE id=$1', [req.params.id]);
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
   const basic = r.result_basic;
-  const gen = await generateAiReading({ type: r.type, question: r.question, cards: basic?.cards, chart: r.type === 'astrology_natal' ? basic : null });
+  const gen = await generateAiReading(
+    { type: r.type, question: r.question, cards: basic?.cards, chart: r.type === 'astrology_natal' ? basic : null },
+    { loadEndpoints: () => getAiEndpoints(db) },
+  );
   if (!gen.ok) return res.status(502).json({ error: gen.error });
   await db.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [gen.text, now(), r.id]);
   res.json({ data: { deepInsightsReport: gen.text } });

@@ -114,18 +114,19 @@ The ones that matter most:
 | `TEST_DATABASE_URL` | Separate database for integration tests; its name must end in `_test` |
 | `PORT` | Express API port; defaults to `3301` |
 | `JWT_SECRET`, `ADMIN_TOKEN` | **Must** be real random values in production — the server refuses to boot with placeholders when `NODE_ENV=production` |
-| `ANTHROPIC_API_KEY` | Enables AI reading generation; feature fails gracefully (clear error, no crash) if unset |
+| `SETTINGS_ENCRYPTION_KEY` | Recommended dedicated key for encrypting AI provider credentials stored in PostgreSQL; falls back to `JWT_SECRET` if unset |
 | `PAYMENT_MODE` | `sandbox` (default) simulates instant payment success for dev/testing |
 | `DB_REINIT` | Defaults to `false`; set `true` only when intentionally wiping the development database |
 
 ### Admin-managed AI and payment configuration
 
-The settings data model now reserves ordered AI provider entries and QR payment
+The settings data model reserves ordered AI provider entries and QR payment
 methods in the existing JSONB settings row. This groundwork includes strict
-validation, AES-256-GCM encryption helpers for stored API keys, admin-safe
-redaction, and the report statuses `detail_unpaid`, `detail_tobepaid`, and
-`detail_paid`. The settings screens, provider fallback calls, and admin
-verification workflow are added in the following implementation batches.
+validation, AES-256-GCM encryption helpers for stored API keys, and admin-safe
+redaction. Deep Insights generation now tries enabled Anthropic, OpenAI,
+DeepSeek, or custom OpenAI-compatible providers in configured order, falling
+back after failures. The settings screens and admin payment-verification
+workflow are added in the following implementation batches.
 
 ## API DTOs
 

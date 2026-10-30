@@ -53,6 +53,14 @@ async function getAiMechanismSettings(db) {
   return row?.value?.aiMechanism || { autoGenerateOnPayment: true };
 }
 
+async function getAiEndpoints(db) {
+  const mechanism = await getAiMechanismSettings(db);
+  if (!Array.isArray(mechanism.endpoints)) return [];
+  return mechanism.endpoints
+    .filter((endpoint) => endpoint?.enabled && endpoint?.id)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
 function sandboxSign(payload) {
   const secret = process.env.PAYMENT_SANDBOX_SECRET || 'change-me-sandbox-signing-key';
   return crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex');
@@ -71,6 +79,6 @@ function simulateSandboxPayment(order) {
 
 module.exports = {
   TIERS, TIER_LABEL, productCode, parseProductCode,
-  resolvePriceCents, getAiMechanismSettings,
+  resolvePriceCents, getAiEndpoints, getAiMechanismSettings,
   simulateSandboxPayment, sandboxSign,
 };

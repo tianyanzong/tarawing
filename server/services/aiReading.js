@@ -1,15 +1,19 @@
 /**
- * server/services/aiReading.js
- * Combines card meanings / spread positions / chart data + the user's
- * question into a prompt for Claude, producing a bespoke interpretation
- * instead of static templated text. Degrades gracefully (clear error, no
- * crash) if ANTHROPIC_API_KEY isn't configured — same pattern as the
- * reference project's ai-report.js.
+ * Provider-agnostic Deep Insights generation.
+ *
+ * Enabled provider entries are stored in the admin settings JSON and tried in
+ * order. No AI credentials are read from environment variables.
  */
 'use strict';
 const { logger } = require('../utils/logger');
+const { decryptSecret } = require('./settingsSecurity');
+const { getAiEndpoints } = require('./paymentService');
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+const DEFAULT_BASE_URL = {
+  anthropic: 'https://api.anthropic.com',
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com/v1',
+};
 
 function buildPrompt({ type, question, cards, chart }) {
   const lines = [];
@@ -35,38 +39,175 @@ function buildPrompt({ type, question, cards, chart }) {
   return lines.join('\n');
 }
 
-async function generateAiReading(payload) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: 'ANTHROPIC_API_KEY is not configured. AI readings are unavailable until it is set.' };
+function providerUrl(endpoint) {
+  const defaultBase = DEFAULT_BASE_URL[endpoint.adapter];
+  const rawBase = endpoint.baseUrl || defaultBase;
+  if (!rawBase) throw new Error(`Unsupported AI provider adapter: ${endpoint.adapter}`);
+
+  const url = new URL(rawBase);
+  if (url.protocol !== 'https:') throw new Error('AI provider base URLs must use HTTPS.');
+
+  let path = url.pathname.replace(/\/+$/, '');
+  if (endpoint.adapter === 'anthropic') {
+    if (!path.endsWith('/v1/messages')) {
+      path = path.endsWith('/v1') ? `${path}/messages` : `${path}/v1/messages`;
+    }
+  } else if (['openai', 'deepseek', 'openai_compatible'].includes(endpoint.adapter)) {
+    if (!path.endsWith('/chat/completions')) {
+      path = path.endsWith('/v1') ? `${path}/chat/completions` : `${path}/v1/chat/completions`;
+    }
+  } else {
+    throw new Error(`Unsupported AI provider adapter: ${endpoint.adapter}`);
   }
-  const prompt = buildPrompt(payload);
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+
+  url.pathname = path;
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function buildProviderRequest(endpoint, prompt, apiKey) {
+  const url = providerUrl(endpoint);
+  if (endpoint.adapter === 'anthropic') {
+    return {
+      url,
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: MODEL,
+      body: {
+        model: endpoint.model,
         max_tokens: 1200,
         messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      logger.error('Anthropic API error', { status: res.status, body: text });
-      return { ok: false, error: `AI provider returned ${res.status}.` };
-    }
-    const data = await res.json();
-    const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-    return { ok: true, text };
-  } catch (err) {
-    logger.error('AI reading generation failed', { err });
-    return { ok: false, error: 'AI reading generation failed unexpectedly.' };
+      },
+    };
   }
+
+  return {
+    url,
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: {
+      model: endpoint.model,
+      max_tokens: 1200,
+      messages: [{ role: 'user', content: prompt }],
+    },
+  };
 }
 
-module.exports = { generateAiReading, buildPrompt };
+function extractProviderText(adapter, responseBody) {
+  if (adapter === 'anthropic') {
+    return (responseBody.content || [])
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+      .trim();
+  }
+  return String(responseBody.choices?.[0]?.message?.content || '').trim();
+}
+
+async function generateAiReading(payload, dependencies = {}) {
+  const loadEndpoints = dependencies.loadEndpoints || getAiEndpoints;
+  const fetchImpl = dependencies.fetchImpl || global.fetch;
+  const log = dependencies.logger || logger;
+  const prompt = buildPrompt(payload);
+
+  let endpoints;
+  try {
+    endpoints = await loadEndpoints();
+  } catch (err) {
+    log.error('Could not load AI provider settings', { err });
+    return { ok: false, error: 'Could not load AI provider settings.' };
+  }
+
+  const candidates = (Array.isArray(endpoints) ? endpoints : [])
+    .filter((endpoint) => endpoint?.enabled && endpoint?.id)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  if (candidates.length === 0) {
+    return { ok: false, error: 'No enabled AI providers are configured.' };
+  }
+
+  let attempts = 0;
+  for (const endpoint of candidates) {
+    if (!endpoint.apiKeyEncrypted) {
+      log.error('AI provider has no API key', {
+        providerId: endpoint.id,
+        providerName: endpoint.name,
+      });
+      continue;
+    }
+
+    attempts += 1;
+    try {
+      const apiKey = decryptSecret(endpoint.apiKeyEncrypted);
+      const request = buildProviderRequest(endpoint, prompt, apiKey);
+      const response = await fetchImpl(request.url, {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+      });
+
+      if (!response.ok) {
+        log.error('AI provider returned an error', {
+          providerId: endpoint.id,
+          providerName: endpoint.name,
+          status: response.status,
+        });
+        continue;
+      }
+
+      const raw = await response.text();
+      let responseBody;
+      try {
+        responseBody = JSON.parse(raw);
+      } catch {
+        log.error('AI provider returned malformed JSON', {
+          providerId: endpoint.id,
+          providerName: endpoint.name,
+        });
+        continue;
+      }
+
+      const text = extractProviderText(endpoint.adapter, responseBody);
+      if (!text) {
+        log.error('AI provider returned empty text', {
+          providerId: endpoint.id,
+          providerName: endpoint.name,
+        });
+        continue;
+      }
+
+      return {
+        ok: true,
+        text,
+        providerId: endpoint.id,
+        providerName: endpoint.name,
+      };
+    } catch (err) {
+      log.error('AI provider attempt failed', {
+        err,
+        providerId: endpoint.id,
+        providerName: endpoint.name,
+      });
+    }
+  }
+
+  if (attempts === 0) {
+    return { ok: false, error: 'Enabled AI providers do not have API keys configured.' };
+  }
+  return {
+    ok: false,
+    error: 'All enabled AI providers failed. Check Admin > Settings > AI mechanism.',
+  };
+}
+
+module.exports = {
+  buildPrompt,
+  buildProviderRequest,
+  extractProviderText,
+  generateAiReading,
+};

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
-import type { AiAdapter, AiEndpoint, PaymentMethod, SiteSettings } from '@/lib/types';
+import type { AiAdapter, AiEndpoint, PaymentMethod, SiteSettings, SmtpSettings } from '@/lib/types';
 
 const CATEGORY_LABEL: Record<string, string> = { tarot: 'Tarot', astrology: 'Astrology', spreads: 'Spreads' };
 const ADAPTER_LABEL: Record<AiAdapter, string> = {
@@ -17,7 +17,7 @@ const DEFAULT_BASE_URL: Record<AiAdapter, string> = {
   openai_compatible: '',
 };
 
-type SettingsTab = 'general' | 'pricing' | 'ai' | 'payments';
+type SettingsTab = 'general' | 'pricing' | 'ai' | 'payments' | 'smtp';
 
 function dollars(cents: number) { return (cents / 100).toFixed(2); }
 function toCents(dollarStr: string) { return Math.round(Number(dollarStr || '0') * 100); }
@@ -54,6 +54,10 @@ export default function AdminSettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('general');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testRecipient, setTestRecipient] = useState('');
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testingSmtp, setTestingSmtp] = useState(false);
 
   useEffect(() => {
     api.get<SiteSettings>('/api/admin/settings', true)
@@ -62,15 +66,17 @@ export default function AdminSettingsPage() {
   }, []);
 
   async function save() {
-    if (!settings) return;
+    if (!settings) return false;
     setError(null);
     try {
       const result = await api.put<{ settings: SiteSettings }>('/api/admin/settings', settings, true);
       setSettings(result.settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      return true;
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save settings.');
+      return false;
     }
   }
 
@@ -131,6 +137,11 @@ export default function AdminSettingsPage() {
     setSettings({ ...settings, paymentMethods });
   }
 
+  function setSmtp(patch: Partial<SmtpSettings>) {
+    if (!settings) return;
+    setSettings({ ...settings, smtp: { ...settings.smtp, ...patch } });
+  }
+
   function addPaymentMethod() {
     if (!settings) return;
     setSettings({
@@ -160,6 +171,22 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function sendSmtpTest() {
+    setTestError(null);
+    setTestMessage(null);
+    const savedSuccessfully = await save();
+    if (!savedSuccessfully) return;
+    setTestingSmtp(true);
+    try {
+      await api.post('/api/admin/settings/smtp/test', { to: testRecipient }, true);
+      setTestMessage('SMTP test email sent.');
+    } catch (e) {
+      setTestError(e instanceof ApiError ? e.message : 'Could not send the test email.');
+    } finally {
+      setTestingSmtp(false);
+    }
+  }
+
   if (!settings) return <p className="form-note">Loading...</p>;
 
   return (
@@ -172,6 +199,7 @@ export default function AdminSettingsPage() {
         <button className={`tab-btn ${tab === 'pricing' ? 'is-active' : ''}`} onClick={() => setTab('pricing')}>Report pricing</button>
         <button className={`tab-btn ${tab === 'ai' ? 'is-active' : ''}`} onClick={() => setTab('ai')}>AI mechanism</button>
         <button className={`tab-btn ${tab === 'payments' ? 'is-active' : ''}`} onClick={() => setTab('payments')}>Payment methods</button>
+        <button className={`tab-btn ${tab === 'smtp' ? 'is-active' : ''}`} onClick={() => setTab('smtp')}>SMTP</button>
       </div>
 
       {tab === 'general' && (
@@ -184,6 +212,18 @@ export default function AdminSettingsPage() {
             <label><input type="checkbox" checked={settings.donationEnabled} onChange={(e) => setSettings({ ...settings, donationEnabled: e.target.checked })} style={{ marginRight: 8 }} />Show donation prompt</label>
           </div>
           <div className="form-field"><label>Donation message</label><textarea rows={3} value={settings.donationMessage} onChange={(e) => setSettings({ ...settings, donationMessage: e.target.value })} /></div>
+          <div className="form-field">
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.requireEmailVerification}
+                onChange={(e) => setSettings({ ...settings, requireEmailVerification: e.target.checked })}
+                style={{ marginRight: 8 }}
+              />
+              Require email verification before login
+            </label>
+            <p className="form-note">Default is off. SMTP must be enabled and complete before this can be turned on.</p>
+          </div>
         </div>
       )}
 
@@ -368,6 +408,92 @@ export default function AdminSettingsPage() {
             {settings.paymentMethods.length === 0 && (
               <p className="form-note">No payment methods configured.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'smtp' && (
+        <div className="panel settings-panel">
+          <div className="settings-section-heading">
+            <div>
+              <h2 style={{ fontSize: 18, marginBottom: 6 }}>SMTP email</h2>
+              <p className="form-note">Used for password recovery, verification links, and system notifications.</p>
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.smtp.enabled}
+                onChange={(e) => setSmtp({ enabled: e.target.checked })}
+                style={{ marginRight: 8 }}
+              />
+              Enable SMTP email
+            </label>
+          </div>
+
+          <div className="settings-grid">
+            <div className="form-field">
+              <label htmlFor="smtp-host">SMTP host</label>
+              <input id="smtp-host" value={settings.smtp.host} onChange={(e) => setSmtp({ host: e.target.value })} placeholder="smtp.example.com" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-port">SMTP port</label>
+              <input id="smtp-port" type="number" min={1} max={65535} value={settings.smtp.port} onChange={(e) => setSmtp({ port: Number(e.target.value) })} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-username">SMTP username</label>
+              <input id="smtp-username" value={settings.smtp.username} onChange={(e) => setSmtp({ username: e.target.value })} autoComplete="username" />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-password">SMTP password</label>
+              <input
+                id="smtp-password"
+                type="password"
+                autoComplete="new-password"
+                value={settings.smtp.password || ''}
+                onChange={(e) => setSmtp({ password: e.target.value })}
+                placeholder={settings.smtp.hasPassword ? 'Configured - enter a new password to replace it' : 'Enter SMTP password'}
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-from-name">From name</label>
+              <input id="smtp-from-name" value={settings.smtp.fromName} onChange={(e) => setSmtp({ fromName: e.target.value })} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-from-email">From email</label>
+              <input id="smtp-from-email" type="email" value={settings.smtp.fromEmail} onChange={(e) => setSmtp({ fromEmail: e.target.value })} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-reply-to">Reply-to email</label>
+              <input id="smtp-reply-to" type="email" value={settings.smtp.replyTo} onChange={(e) => setSmtp({ replyTo: e.target.value })} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="smtp-public-url">Public site URL</label>
+              <input id="smtp-public-url" type="url" value={settings.smtp.publicSiteUrl} onChange={(e) => setSmtp({ publicSiteUrl: e.target.value })} />
+            </div>
+          </div>
+
+          <label className="settings-check">
+            <input type="checkbox" checked={settings.smtp.secure} onChange={(e) => setSmtp({ secure: e.target.checked })} />
+            Use implicit TLS (usually port 465)
+          </label>
+
+          <div className="smtp-test-block">
+            <h3 style={{ fontSize: 16, marginBottom: 10 }}>Send a test email</h3>
+            <p className="form-note" style={{ marginBottom: 12 }}>Settings are saved before the test is sent.</p>
+            <div className="smtp-test-row">
+              <div className="form-field">
+                <label htmlFor="smtp-test-recipient">Test recipient</label>
+                <input id="smtp-test-recipient" type="email" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} />
+              </div>
+              <button className="btn btn-primary" onClick={sendSmtpTest} disabled={testingSmtp || !testRecipient}>
+                {testingSmtp ? 'Sending...' : 'Send test email'}
+              </button>
+            </div>
+            {testMessage && <p className="form-success">{testMessage}</p>}
+            {testError && <p className="form-error">{testError}</p>}
           </div>
         </div>
       )}

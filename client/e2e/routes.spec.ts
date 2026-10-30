@@ -22,6 +22,7 @@ const ADMIN_SETTINGS = {
   donationEnabled: true,
   donationMessage: 'Support Tarawing',
   supportEmail: 'support@tarawing.app',
+  requireEmailVerification: false,
   pricing: {
     tarot: { detail: 299, deepInsights: 499 },
     astrology: { detail: 599, deepInsights: 999 },
@@ -47,6 +48,18 @@ const ADMIN_SETTINGS = {
     qrImage: 'data:image/png;base64,iVBORw0KGgo=',
     order: 0,
   }],
+  smtp: {
+    enabled: true,
+    host: 'smtp.example.com',
+    port: 587,
+    secure: false,
+    username: 'mailer',
+    fromName: 'Tarawing',
+    fromEmail: 'hello@tarawing.app',
+    replyTo: 'support@tarawing.app',
+    publicSiteUrl: 'http://localhost:3300',
+    hasPassword: true,
+  },
 };
 
 const READING = {
@@ -245,7 +258,7 @@ test('admin orders append the next cursor page', async ({ page }) => {
   await expect(page.getByText('detail_spreads')).toBeVisible();
 });
 
-test('admin settings exposes four tabs for general, pricing, AI, and payment methods', async ({ page }) => {
+test('admin settings exposes general, pricing, AI, payment, and SMTP tabs', async ({ page }) => {
   await useAdminSession(page);
   await page.goto('/admin/settings');
 
@@ -253,6 +266,7 @@ test('admin settings exposes four tabs for general, pricing, AI, and payment met
   await expect(page.getByRole('button', { name: 'Report pricing', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'AI mechanism', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Payment methods', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'SMTP', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'AI mechanism', exact: true }).click();
   await expect(page.getByText('OpenAI primary', { exact: true })).toBeVisible();
@@ -261,6 +275,11 @@ test('admin settings exposes four tabs for general, pricing, AI, and payment met
   await page.getByRole('button', { name: 'Payment methods', exact: true }).click();
   await expect(page.getByText('PayPal')).toBeVisible();
   await expect(page.getByAltText('PayPal QR code')).toBeVisible();
+
+  await page.getByRole('button', { name: 'SMTP', exact: true }).click();
+  await expect(page.getByLabel('SMTP host')).toHaveValue('smtp.example.com');
+  await expect(page.getByLabel('SMTP password')).toHaveAttribute('placeholder', /configured/i);
+  await expect(page.getByRole('button', { name: 'Send test email' })).toBeVisible();
 });
 
 test('admin orders show owner email and verification controls', async ({ page }) => {
@@ -340,6 +359,68 @@ test('QR payment dialog keeps Deep Insights disabled until detail payment is ver
   await expect(page.getByAltText('PayPal QR code')).toBeVisible();
   await expect(page.getByAltText('Stripe QR code')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip payment and view report' })).toBeVisible();
+});
+
+test('login exposes password recovery and offers verification resend', async ({ page }) => {
+  let resendBody: unknown;
+  await page.route('**/api/auth/login', (route) => route.fulfill({
+    status: 403,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      error: 'Verify your email before signing in.',
+      details: { code: 'EMAIL_NOT_VERIFIED' },
+    }),
+  }));
+  await page.route('**/api/auth/resend-verification', (route) => {
+    resendBody = route.request().postDataJSON();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { ok: true } }),
+    });
+  });
+
+  await page.goto('/login');
+  await expect(page.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute('href', '/forgot-password');
+  await page.getByLabel('Email').fill('reader@example.com');
+  await page.getByLabel('Password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Resend verification email' })).toBeVisible();
+  await page.getByRole('button', { name: 'Resend verification email' }).click();
+  await expect(page.getByText('A new verification email has been sent.')).toBeVisible();
+  expect(resendBody).toEqual({ email: 'reader@example.com' });
+});
+
+test('forgot, reset, and verify email pages complete their API flows', async ({ page }) => {
+  await page.route('**/api/auth/forgot-password', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { ok: true } }),
+  }));
+  await page.route('**/api/auth/reset-password', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { ok: true } }),
+  }));
+  await page.route('**/api/auth/verify-email', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { verified: true } }),
+  }));
+
+  await page.goto('/forgot-password');
+  await page.getByLabel('Email').fill('reader@example.com');
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByText('If that email is registered, a reset link has been sent.')).toBeVisible();
+
+  await page.goto('/reset-password?token=reset-token');
+  await page.getByLabel('New password').fill('new-password');
+  await page.getByLabel('Confirm password').fill('new-password');
+  await page.getByRole('button', { name: 'Reset password' }).click();
+  await expect(page.getByText('Your password has been reset.')).toBeVisible();
+
+  await page.goto('/verify-email?token=verify-token');
+  await expect(page.getByText('Your email is verified.')).toBeVisible();
 });
 
 test('tarot draw renders loaded image artwork instead of generated placeholder art', async ({ page }) => {

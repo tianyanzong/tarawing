@@ -683,6 +683,19 @@ promise. Corrected:
 - [x] Added mail-template tests and upgraded Nodemailer to the patched 10.x
       release after the initial install triggered dependency advisories.
 
+## Batch 37 — SMTP, email verification, and report prompts, part 3: settings and account UI (DONE)
+- [x] Added the fifth Settings tab for SMTP configuration and a save-before-test
+      email action.
+- [x] Added the General `Require email verification before login` checkbox,
+      default off.
+- [x] Added login password-recovery links and resend verification handling.
+- [x] Added forgot-password, reset-password, and email-verification pages with
+      accessible form labels and Suspense query handling.
+- [x] Updated registration to handle mandatory verification responses without
+      attempting to sign in an unverified account.
+- [x] Added browser coverage for SMTP settings, recovery pages, verification,
+      and resend behavior.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

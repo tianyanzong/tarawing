@@ -136,7 +136,8 @@ mail flow and settings UI are added in the following batches.
 Password recovery and email-verification API flows are now implemented. When
 mail is enabled, registration and resend requests send one-time links; when
 mandatory verification is enabled, unverified users cannot sign in. The UI for
-these flows and the SMTP settings tab are added in the next batch.
+these flows and the SMTP settings tab are available from the login and admin
+settings screens.
 
 ## API DTOs
 
@@ -387,6 +388,11 @@ name/email, change password — the server verifies the current password via
 bcrypt before allowing a change). The nav shows a user-icon avatar + Logout
 button once signed in, replacing the "Sign in" link.
 
+The login page links to password recovery. Password reset, email verification,
+and resend-verification pages use the SMTP configuration and one-time token
+flow. Registration asks for verification only when the General setting requires
+it; otherwise the default remains non-blocking.
+
 Report payment dialogs show the enabled QR payment methods. Detailed reports
 can be opened without paying and remain `detail_unpaid`; a submitted payment
 becomes `detail_tobepaid` until an admin verifies it as `detail_paid`. Deep
@@ -401,11 +407,12 @@ Admin accounts). Permissions are domain-scoped (`users`, `orders`,
 `readings`, `consults`, `settings`, `content`) and enforced both in the API
 (`requirePerm`) and hidden from the nav client-side for admins who lack them.
 
-Settings has four tabs: General, Report pricing, AI mechanism, and Payment
-methods. AI providers can be added, enabled, reordered, and replaced without
+Settings has five tabs: General, Report pricing, AI mechanism, Payment methods,
+and SMTP. AI providers can be added, enabled, reordered, and replaced without
 editing environment variables. Payment-method QR images are uploaded from the
-admin screen and can also be enabled, disabled, and reordered. Orders shows the
-owning user's email and exposes Verify/Reject controls for submitted QR
-payments.
+admin screen and can also be enabled, disabled, and reordered. SMTP manages the
+mail server, sender identity, reply-to address, public URL for links, encrypted
+password, and test delivery. Orders shows the owning user's email and exposes
+Verify/Reject controls for submitted QR payments.
 
 See `docs/PROGRESS.md` for the full batch-by-batch build log.

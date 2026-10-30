@@ -14,14 +14,26 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [createdMessage, setCreatedMessage] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      const res = await api.post<{ user: User; token: string }>('/api/auth/register', { name, email, password });
-      await signIn(res.token, res.user);
-      router.push('/dashboard');
+      const res = await api.post<{
+        user: User;
+        token?: string;
+        verificationRequired?: boolean;
+        verificationEmailSent?: boolean;
+      }>('/api/auth/register', { name, email, password });
+      if (res.token) {
+        await signIn(res.token, res.user);
+        router.push('/dashboard');
+      } else {
+        setCreatedMessage(res.verificationEmailSent
+          ? 'Account created. Check your email for the verification link before signing in.'
+          : 'Account created. Email verification is required, but the verification email could not be sent. Contact support or try resending later.');
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not create the account.');
     } finally {
@@ -47,6 +59,7 @@ export default function RegisterPage() {
             <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error && <p className="form-error">{error}</p>}
+          {createdMessage && <p className="form-success">{createdMessage}</p>}
           <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
             {loading ? 'Creating…' : 'Create account'}
           </button>

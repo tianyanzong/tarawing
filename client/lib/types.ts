@@ -103,6 +103,7 @@ export interface User {
   email: string;
   role: string;
   createdAt: string;
+  emailVerifiedAt?: string | null;
   lastActive?: string | null;
 }
 
@@ -235,6 +236,7 @@ export interface SiteSettings {
   donationEnabled: boolean;
   donationMessage: string;
   supportEmail: string;
+  requireEmailVerification: boolean;
   pricing: {
     tarot: { detail: number; deepInsights: number };
     astrology: { detail: number; deepInsights: number };
@@ -245,6 +247,21 @@ export interface SiteSettings {
     endpoints: AiEndpoint[];
   };
   paymentMethods: PaymentMethod[];
+  smtp: SmtpSettings;
+}
+
+export interface SmtpSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  password?: string;
+  hasPassword?: boolean;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  publicSiteUrl: string;
 }
 
 export interface Notification {

@@ -113,10 +113,12 @@ export default function ReportFlow({ readingId }: { readingId: string }) {
     }
   }
 
-  async function exportPdf() {
-    setBusy('pdf'); setError(null);
+  async function exportPdf(tier: 'detail' | 'deep_insights') {
+    setBusy(tier === 'detail' ? 'pdf-detail' : 'pdf-deep-insights'); setError(null);
     try {
-      await downloadFile(`/api/readings/${readingId}/export-pdf`, 'tarawing-detailed-report.pdf');
+      const query = tier === 'detail' ? '' : '?tier=deep_insights';
+      const filename = tier === 'detail' ? 'tarawing-detailed-report.pdf' : 'tarawing-deep-insights-report.pdf';
+      await downloadFile(`/api/readings/${readingId}/export-pdf${query}`, filename);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not export the PDF.');
     } finally {
@@ -182,8 +184,8 @@ export default function ReportFlow({ readingId }: { readingId: string }) {
         <div className="panel" style={{ marginTop: 20, marginBottom: 20 }}>
           <div className="report-section-heading">
             <h3 className="heading-tarot" style={{ fontSize: 17 }}>Detailed Report</h3>
-            <button className="btn btn-ghost btn-compact" onClick={exportPdf} disabled={busy === 'pdf'}>
-              {busy === 'pdf' ? 'Exporting...' : 'Export as PDF'}
+            <button className="btn btn-ghost btn-compact" onClick={() => exportPdf('detail')} disabled={busy === 'pdf-detail'}>
+              {busy === 'pdf-detail' ? 'Exporting...' : 'Export as PDF'}
             </button>
           </div>
           <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{view.detailedReport}</p>
@@ -194,7 +196,16 @@ export default function ReportFlow({ readingId }: { readingId: string }) {
         <div className="deep-insights-flow">
           {view.deepInsights.ready && view.deepInsights.report && (
             <div className="panel" style={{ borderColor: 'var(--gold)' }}>
-              <h3 className="heading-tarot" style={{ fontSize: 17, marginBottom: 10, color: 'var(--gold-bright)' }}>Deep Insights Report</h3>
+              <div className="report-section-heading" style={{ marginBottom: 10 }}>
+                <h3 className="heading-tarot" style={{ fontSize: 17, color: 'var(--gold-bright)' }}>Deep Insights Report</h3>
+                <button
+                  className="btn btn-ghost btn-compact"
+                  onClick={() => exportPdf('deep_insights')}
+                  disabled={busy === 'pdf-deep-insights'}
+                >
+                  {busy === 'pdf-deep-insights' ? 'Exporting...' : 'Export Deep Insights PDF'}
+                </button>
+              </div>
               <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{view.deepInsights.report}</p>
             </div>
           )}

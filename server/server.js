@@ -570,16 +570,24 @@ app.post('/api/readings/:id/detail/skip-payment', requireActive, ah(async (req, 
   res.json({ data: await buildReadingView(updated, req.user.id) });
 }));
 
-// Paid tier (detail): a nicely-typeset PDF of the detailed report.
-app.get('/api/readings/:id/export-pdf', requireActive, ah(async (req, res) => {
+// Paid reports can be exported independently of their text rendering.
+app.get('/api/readings/:id/export-pdf', requireActive, validate(S.exportPdfQuery, 'query'), ah(async (req, res) => {
   const r = await claimAndFetchReading(req.params.id, req.user.id);
   if (!r) return res.status(404).json({ error: 'Reading not found.' });
-  if (!detailAccessFromStatus(r.status).accessible || !r.detailed_report) {
+  const tier = req.query.tier;
+  if (tier === 'deep_insights') {
+    if (!canGenerateDeepInsights(r.status) || !(await hasPaidDeepInsightsOrder(db, r)) || !r.deep_insights_report) {
+      return res.status(402).json({ error: 'A verified Deep Insights report is required before export.' });
+    }
+  } else if (!detailAccessFromStatus(r.status).accessible || !r.detailed_report) {
     return res.status(402).json({ error: 'The detailed report is locked. Unlock it first.' });
   }
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="tarawing-${r.type}-${r.id}.pdf"`);
-  renderReportPdf(r, categoryOf(r.type)).pipe(res);
+  const filename = tier === 'deep_insights'
+    ? `tarawing-deep-insights-${r.type}-${r.id}.pdf`
+    : `tarawing-detailed-report-${r.type}-${r.id}.pdf`;
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  renderReportPdf(r, categoryOf(r.type), tier).pipe(res);
 }));
 
 app.post('/api/readings/:id/share', requireActive, ah(async (req, res) => {

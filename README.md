@@ -390,6 +390,10 @@ Every reading goes through three tiers, free to paid to paid:
    portal's **Deep Insights Queue** for a human to generate (one click, via
    AI) or write by hand.
 
+Once a Deep Insights report is ready, it also has its own PDF export action.
+The export endpoint requires both `detail_paid` access and a verified paid Deep
+Insights order, so it cannot be used to bypass the report gate.
+
 Pricing is per-category (tarot / astrology / spreads) and tier, set in
 **Admin → Settings → Report pricing** — never hardcoded in the client.
 

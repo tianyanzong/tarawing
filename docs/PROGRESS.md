@@ -748,6 +748,17 @@ promise. Corrected:
 - [x] Added a browser regression test for the rendered artwork and removal of
       the old orbit elements.
 
+## Batch 43 — Deep Insights PDF export (DONE)
+- [x] Extended the PDF renderer to select detailed or Deep Insights report
+      content, titles, footers, and filenames.
+- [x] Added a validated `tier` query parameter to the existing export route.
+- [x] Required a paid `detail_paid` reading, a verified paid Deep Insights
+      order, and generated Deep Insights text before export.
+- [x] Added the `Export Deep Insights PDF` action to the completed report
+      panel while preserving detailed-report export behavior.
+- [x] Added PDF-content unit tests and browser coverage for the Deep Insights
+      export request.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

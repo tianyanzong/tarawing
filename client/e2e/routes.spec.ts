@@ -363,6 +363,55 @@ test('QR payment dialog keeps Deep Insights disabled until detail payment is ver
   await expect(page.getByRole('button', { name: 'Skip payment and view report' })).toBeVisible();
 });
 
+test('completed Deep Insights report exposes a PDF export', async ({ page }) => {
+  await useUserSession(page);
+  await page.route('**/api/readings/rd_deep_pdf', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: {
+        id: 'rd_deep_pdf',
+        type: 'tarot',
+        category: 'tarot',
+        question: 'How should I proceed?',
+        status: 'detail_paid',
+        createdAt: '2026-10-31T10:00:00.000Z',
+        owned: true,
+        resultBasic: { deck: 'tarot', cards: [] },
+        simpleReport: 'Simple report.',
+        detailedUnlocked: true,
+        detailedPaid: true,
+        detailedReport: 'Detailed report.',
+        detailPayment: { orderId: null, orderStatus: 'paid', amountCents: 299 },
+        deepInsights: {
+          ordered: true,
+          paid: true,
+          ready: true,
+          pending: false,
+          submitted: false,
+          report: 'Deep Insights report body.',
+          orderId: null,
+          orderStatus: 'paid',
+        },
+        pricing: { detailCents: 299, deepInsightsCents: 499 },
+      },
+    }),
+  }));
+  await page.route('**/api/readings/rd_deep_pdf/export-pdf?tier=deep_insights', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/pdf',
+    body: '%PDF-1.4\n%%EOF',
+  }));
+
+  await page.goto('/readings/rd_deep_pdf');
+  const exportButton = page.getByRole('button', { name: 'Export Deep Insights PDF' });
+  await expect(exportButton).toBeVisible();
+  const requestPromise = page.waitForRequest((request) => request.url().includes('/export-pdf?tier=deep_insights'));
+  await exportButton.click();
+  const request = await requestPromise;
+  expect(request.url()).toContain('/api/readings/rd_deep_pdf/export-pdf?tier=deep_insights');
+});
+
 test('login exposes password recovery and offers verification resend', async ({ page }) => {
   let resendBody: unknown;
   await page.route('**/api/auth/login', (route) => route.fulfill({

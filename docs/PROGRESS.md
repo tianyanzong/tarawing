@@ -738,6 +738,16 @@ promise. Corrected:
       count, positions, and canonical Lenormand numbering.
 - [x] Ran the focused spread tests and the full server suite on `main`.
 
+## Batch 42 — Homepage three-engines artwork (DONE)
+- [x] Replaced the CSS orbit rings, core, and engine labels with the supplied
+      `client/app/assets/images/three-engines.webp` artwork.
+- [x] Retained the decorative `aria-hidden` container and used an empty image
+      alt because the adjacent hero copy provides the accessible description.
+- [x] Loaded the artwork through `next/image` with intrinsic aspect-ratio
+      sizing up to 420px.
+- [x] Added a browser regression test for the rendered artwork and removal of
+      the old orbit elements.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

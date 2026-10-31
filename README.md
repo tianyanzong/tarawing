@@ -321,6 +321,10 @@ All public page containers, navigation, and footer content share the
 `--content-width` variable (`1120px`) so their horizontal edges align at every
 viewport width.
 
+The homepage hero uses the supplied `three-engines.webp` artwork through
+`next/image`; it retains its intrinsic aspect ratio and is treated as
+decorative because the adjacent copy already explains the three engines.
+
 ## Fonts
 
 Card names and astro headings use `--font-tarot` (see `app/globals.css`).

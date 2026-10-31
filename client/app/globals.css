@@ -175,7 +175,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 }
 .btn-ribbon:hover { background: var(--gold-bright); }
 
-/* ── Hero: asymmetric layout with orbit diagram ── */
+/* ── Hero: asymmetric layout with three-engines artwork ── */
 .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding: 76px 0 64px; }
 .hero-eyebrow { color: var(--gold-bright); font-size: 14px; margin-bottom: 14px; font-weight: 500; }
 .hero h1 { font-size: clamp(38px, 5vw, 58px); line-height: 1.08; max-width: 12ch; }
@@ -186,21 +186,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--sky); }
 .trust-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--parchment-dim); }
 .trust-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
 
-@keyframes orbit-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-
-.orbit { position: relative; width: 100%; aspect-ratio: 1; max-width: 420px; margin: 0 auto; overflow: hidden; }
-.orbit-ring { position: absolute; border: 1px solid var(--hairline); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.orbit-ring--1 { width: 100%; height: 100%; animation: orbit-spin 120s linear infinite; }
-.orbit-ring--2 { width: 68%; height: 68%; animation: orbit-spin 90s linear infinite reverse; }
-.orbit-ring--3 { width: 36%; height: 36%; border-color: var(--mint-deep); }
-.orbit-core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 14%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold), var(--gold-bright) 70%); }
-.orbit-node {
-  position: absolute; display: flex; align-items: center; justify-content: center;
-  width: 96px; height: 96px; border-radius: 50%; background: var(--ink-panel);
-  border: 1px solid var(--hairline); font-family: var(--serif); font-size: 13.5px; text-align: center;
-  padding: 6px; line-height: 1.25; color: var(--parchment);
-}
-.orbit-node:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
+.orbit { width: 100%; max-width: 420px; margin: 0 auto; }
+.orbit-image { display: block; width: 100%; height: auto; object-fit: contain; }
 
 /* ── Section ── */
 .section { padding: 60px 0; border-top: 1px solid var(--hairline); }

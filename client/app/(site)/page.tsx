@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import threeEngines from '@/app/assets/images/three-engines.webp';
 
 export default function Home() {
   return (
@@ -23,13 +25,13 @@ export default function Home() {
           </div>
         </div>
         <div className="orbit" aria-hidden="true">
-          <div className="orbit-ring orbit-ring--1" />
-          <div className="orbit-ring orbit-ring--2" />
-          <div className="orbit-ring orbit-ring--3" />
-          <div className="orbit-core" />
-          <div className="orbit-node" style={{ top: '2%', left: '50%', transform: 'translate(-50%,0)' }}>Cosmic Engine</div>
-          <div className="orbit-node" style={{ bottom: '10%', left: '4%' }}>Oracle Engine</div>
-          <div className="orbit-node" style={{ bottom: '10%', right: '4%' }}>Sacred Layout</div>
+          <Image
+            src={threeEngines}
+            alt=""
+            className="orbit-image home-three-engines"
+            sizes="(max-width: 860px) 100vw, 420px"
+            priority
+          />
         </div>
       </section>
 

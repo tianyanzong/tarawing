@@ -701,6 +701,22 @@ test('horizontal logo loads on desktop and mobile without overflow', async ({ pa
   ).toBe(true);
 });
 
+test('homepage hero uses the supplied three-engines artwork', async ({ page }) => {
+  await page.goto('/');
+
+  const artwork = page.locator('img.home-three-engines');
+  await expect(artwork).toBeVisible();
+  await expect.poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(artwork).toHaveCSS('object-fit', 'contain');
+  await expect(page.locator('.orbit-ring, .orbit-core, .orbit-node')).toHaveCount(0);
+  expect(await artwork.evaluate((image) => image.getBoundingClientRect().width)).toBeLessThanOrEqual(420);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(artwork).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+});
+
 test('page content aligns with the public navigation and footer width', async ({ page }) => {
   for (const path of ['/', '/login', '/faq', '/privacy', '/library', '/astrology']) {
     await page.goto(path);

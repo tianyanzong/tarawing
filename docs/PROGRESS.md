@@ -759,6 +759,18 @@ promise. Corrected:
 - [x] Added PDF-content unit tests and browser coverage for the Deep Insights
       export request.
 
+## Batch 44 — Homepage artwork sizing (DONE)
+- [x] Increased the homepage three-engines artwork from a 420px to a 500px
+      maximum on desktop, with matching `next/image` size hints.
+- [x] Let the artwork keep the 500px maximum in the single-column layout and
+      scale down to the available mobile width.
+- [x] Tightened the homepage hero gap from 40px to 24px so the artwork sits
+      closer to the adjacent copy.
+- [x] Restored the original 860px single-column breakpoint; the temporary
+      1080px breakpoint made desktop browser panels switch layouts too early.
+- [x] Extended the homepage browser regression test to cover desktop,
+      intermediate-width, and mobile rendering.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

@@ -29,7 +29,7 @@ export default function Home() {
             src={threeEngines}
             alt=""
             className="orbit-image home-three-engines"
-            sizes="(max-width: 860px) 100vw, 420px"
+            sizes="(max-width: 760px) calc(100vw - 40px), (max-width: 1080px) calc(100vw - 56px), 500px"
             priority
           />
         </div>

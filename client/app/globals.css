@@ -2,35 +2,10 @@
 
 /*
  * Tarotheque / Basteleur — see FONTS.md.
- * Basteleur is a genuine free/open font (Velvetyne Type Foundry, OFL-family
- * license) designed around Tarot de Marseille imagery, but it is NOT
- * distributed on a public CDN — it must be self-hosted. Tarotheque appears
- * to be a commercial display font; we could not verify a free license for
- * it, so it is declared here but never bundled — if you own a license,
- * drop the files in client/public/fonts/ and it activates automatically.
- * Until then, --font-tarot falls back to Pirata One (Google Fonts, free),
- * a blackletter-style display face in the same mystical spirit.
+ * Neither font file is bundled. Do not add @font-face declarations until
+ * the licensed files exist in client/public/fonts/, otherwise every page
+ * requests missing assets and logs avoidable 404s.
  */
-@font-face {
-  font-family: 'Tarotheque';
-  src: url('/fonts/Tarotheque.woff2') format('woff2'),
-       url('/fonts/Tarotheque.otf') format('opentype');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Basteleur';
-  src: url('/fonts/Basteleur-Bold.woff2') format('woff2'),
-       url('/fonts/Basteleur-Bold.otf') format('opentype');
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Basteleur';
-  src: url('/fonts/Basteleur-Heavy.woff2') format('woff2'),
-       url('/fonts/Basteleur-Heavy.otf') format('opentype');
-  font-weight: 800;
-  font-display: swap;
-}
 
 /*
  * Palette — mint / cream / coral, adapted from a hand-drawn tarot-boutique
@@ -64,7 +39,7 @@
   --radius: 3px;
   --serif: 'Fraunces', ui-serif, Georgia, serif;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-tarot: 'Tarotheque', 'Basteleur', 'Pirata One', var(--serif);
+  --font-tarot: 'Pirata One', var(--serif);
 }
 
 * { box-sizing: border-box; }

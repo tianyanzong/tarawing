@@ -4,7 +4,7 @@
 tarot card names, spread/astrology headings, and zodiac sign labels:
 
 ```css
---font-tarot: 'Tarotheque', 'Basteleur', 'Pirata One', var(--serif);
+--font-tarot: 'Pirata One', var(--serif);
 ```
 
 ## Basteleur — free, but self-hosted
@@ -18,12 +18,13 @@ distributed on a public CDN, so it has to be self-hosted:
 1. Download it from velvetyne.fr/fonts/basteleur (or their GitLab).
 2. Drop `Basteleur-Bold.woff2`/`.otf` and `Basteleur-Heavy.woff2`/`.otf`
    into `client/public/fonts/`.
-3. It activates automatically — the `@font-face` rules are already in
-   `globals.css`, just waiting for the files.
+3. Add matching `@font-face` declarations to `globals.css`, put
+   `'Basteleur'` before `'Pirata One'` in `--font-tarot`, and verify the
+   files return 200 in the browser.
 
-No files are bundled in this repo (this build environment had no way to
-download binary font assets), so until you add them, the stack falls
-through to the next option.
+No files are bundled in this repo, and empty `@font-face` declarations are
+deliberately avoided because they make the browser request nonexistent
+files on every page load.
 
 ## Tarotheque — could not verify a free license
 
@@ -33,9 +34,10 @@ something that might not be legally clear, so it's declared first in the
 stack (in case you already own a license) but never shipped:
 
 - If you have a legitimate license for Tarotheque, drop `Tarotheque.woff2`
-  / `.otf` into `client/public/fonts/` and it will be picked up automatically.
-- If you don't, no action needed — the browser silently skips to the next
-  font in the stack.
+  / `.otf` into `client/public/fonts/`, add its `@font-face` declaration,
+  and place it before `'Pirata One'` in `--font-tarot`.
+- It is not referenced until those licensed files actually exist, so the
+  current build makes no request for it.
 
 ## Pirata One — the working fallback
 

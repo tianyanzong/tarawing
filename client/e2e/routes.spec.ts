@@ -775,6 +775,28 @@ test('homepage hero uses the supplied three-engines artwork', async ({ page }) =
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
 });
 
+test('homepage does not request missing local fonts or log hydration errors', async ({ page }) => {
+  const missingFonts: string[] = [];
+  const hydrationErrors: string[] = [];
+
+  page.on('response', (response) => {
+    if (response.url().includes('/fonts/') && response.status() >= 400) {
+      missingFonts.push(response.url());
+    }
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /hydrat/i.test(message.text())) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+
+  expect(missingFonts).toEqual([]);
+  expect(hydrationErrors).toEqual([]);
+});
+
 test('page content aligns with the public navigation and footer width', async ({ page }) => {
   for (const path of ['/', '/login', '/faq', '/privacy', '/library', '/astrology']) {
     await page.goto(path);

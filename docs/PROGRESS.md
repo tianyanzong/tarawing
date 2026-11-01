@@ -771,6 +771,16 @@ promise. Corrected:
 - [x] Extended the homepage browser regression test to cover desktop,
       intermediate-width, and mobile rendering.
 
+## Batch 45 — Console cleanup (DONE)
+- [x] Removed `@font-face` declarations for the unbundled Tarotheque and
+      Basteleur files; the active stack now uses Pirata One directly.
+- [x] Documented that self-hosted fonts require both matching files and
+      `@font-face` declarations before being added back to the stack.
+- [x] Allowed browser-extension changes to `<body>` attributes to pass
+      hydration, since a clean browser showed no server/client mismatch.
+- [x] Added browser coverage for missing local-font requests and hydration
+      console errors.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

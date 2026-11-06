@@ -11,24 +11,28 @@ const LOGOS = {
     alt: 'Tarawing',
     sizes: '(max-width: 340px) calc(100vw - 40px), (max-width: 760px) 289px, 356px',
     quality: 90,
+    unoptimized: true,
   },
   square: {
     src: squareLogo,
     alt: 'Tarawing Admin',
     sizes: '56px',
     quality: 85,
+    unoptimized: false,
   },
   circular: {
     src: circularLogo,
     alt: 'Tarawing workspace',
     sizes: '72px',
     quality: 85,
+    unoptimized: false,
   },
 } satisfies Record<BrandLogoVariant, {
   src: typeof horizontalLogo;
   alt: string;
   sizes: string;
   quality: number;
+  unoptimized: boolean;
 }>;
 
 interface BrandLogoProps {
@@ -52,6 +56,7 @@ export default function BrandLogo({
       alt={alt ?? logo.alt}
       sizes={logo.sizes}
       quality={logo.quality}
+      unoptimized={logo.unoptimized}
       priority={priority}
       className={`brand-logo brand-logo--${variant}${className ? ` ${className}` : ''}`}
     />

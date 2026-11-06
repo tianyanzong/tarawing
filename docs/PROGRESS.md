@@ -781,6 +781,14 @@ promise. Corrected:
 - [x] Added browser coverage for missing local-font requests and hydration
       console errors.
 
+## Batch 46 — Horizontal logo sharpness (DONE)
+- [x] Confirmed the source wordmark is already 1391×328 but renders at roughly
+      356×84 on desktop, so resolution was not the issue.
+- [x] Bypassed Next image optimization for the horizontal wordmark to avoid
+      the extra small-size lossy re-encode; square/admin icons remain optimized.
+- [x] Added browser coverage that the header logo uses the original WebP rather
+      than an `/_next/image` variant.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

@@ -731,13 +731,16 @@ test('horizontal logo loads on desktop and mobile without overflow', async ({ pa
   await expect(logo).toBeVisible();
   await expect(logo).toHaveCSS('height', '84px');
   await expect(page.locator('.site-nav-outer')).toHaveCSS('background-color', 'rgb(244, 236, 216)');
-  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(350);
+  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.currentSrc)).not.toContain('/_next/image');
+  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(1300);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page.waitForLoadState('networkidle');
   await expect(logo).toBeVisible();
   await expect(logo).toHaveCSS('height', '68px');
+  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.currentSrc)).not.toContain('/_next/image');
+  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(1300);
   await expect.poll(
     () => page.evaluate(() => {
       const nav = document.querySelector('.site-nav');

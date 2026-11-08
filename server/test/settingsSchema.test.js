@@ -99,3 +99,82 @@ test('rejects invalid SMTP ports and public site protocols', () => {
   assert.equal(invalidPort.success, false);
   assert.equal(invalidProtocol.success, false);
 });
+
+test('accepts email and PDF templates and rejects unknown template kinds', () => {
+  const timestamp = new Date().toISOString();
+  const valid = S.siteSettings.safeParse({
+    emailTemplates: [{
+      id: 'eml_1',
+      name: 'Verification',
+      kind: 'email_verification',
+      status: 'enabled',
+      subject: 'Verify {{site_name}}',
+      body: 'Open {{action_url}}',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+    pdfTemplates: [{
+      id: 'pdf_1',
+      name: 'Detailed',
+      kind: 'detail',
+      status: 'disabled',
+      content: '{{report_body}}',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+  });
+  const invalid = S.siteSettings.safeParse({
+    emailTemplates: [{
+      id: 'eml_bad',
+      name: 'Bad',
+      kind: 'marketing',
+      status: 'enabled',
+      subject: 'Bad',
+      body: 'Bad',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+  });
+
+  assert.equal(valid.success, true);
+  assert.equal(invalid.success, false);
+});
+
+test('accepts freeform templates and validates admin contact emails', () => {
+  const timestamp = new Date().toISOString();
+  const settings = S.siteSettings.safeParse({
+    freeformTemplates: [{
+      id: 'free_1',
+      name: 'Check in',
+      subject: 'Hello {{name}}',
+      body: 'A message for {{email}}.',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+  });
+  const contact = S.contactUser.safeParse({
+    subject: 'Hello',
+    body: 'Message body',
+  });
+  const emptyContact = S.contactUser.safeParse({ subject: '', body: '' });
+
+  assert.equal(settings.success, true);
+  assert.equal(contact.success, true);
+  assert.equal(emptyContact.success, false);
+});
+
+test('validates monitor dates, event types, and result limits', () => {
+  const valid = S.monitorQuery.safeParse({
+    from: '2026-11-01T00:00:00.000Z',
+    to: '2026-11-09T00:00:00.000Z',
+    eventType: 'email.password_reset.error',
+    limit: '50',
+  });
+  const invalidDate = S.monitorQuery.safeParse({ from: '2026-11-01' });
+  const invalidLimit = S.monitorQuery.safeParse({ limit: '500' });
+
+  assert.equal(valid.success, true);
+  assert.equal(valid.data.limit, 50);
+  assert.equal(invalidDate.success, false);
+  assert.equal(invalidLimit.success, false);
+});

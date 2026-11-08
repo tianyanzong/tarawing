@@ -60,6 +60,33 @@ const ADMIN_SETTINGS = {
     publicSiteUrl: 'http://localhost:3300',
     hasPassword: true,
   },
+  emailTemplates: [{
+    id: 'eml_preview',
+    name: 'Verification email',
+    kind: 'email_verification',
+    status: 'enabled',
+    subject: 'Verify your Tarawing account',
+    body: 'Verify your email: {{action_url}}',
+    createdAt: '2026-10-26T10:00:00.000Z',
+    updatedAt: '2026-10-26T10:00:00.000Z',
+  }],
+  pdfTemplates: [{
+    id: 'pdf_preview',
+    name: 'Detailed report',
+    kind: 'detail',
+    status: 'enabled',
+    content: '{{title}}\n\n{{report_body}}\n\n{{footer}}',
+    createdAt: '2026-10-26T10:00:00.000Z',
+    updatedAt: '2026-10-26T10:00:00.000Z',
+  }],
+  freeformTemplates: [{
+    id: 'free_preview',
+    name: 'Account check-in',
+    subject: 'Hello {{name}}',
+    body: 'We are checking in about your Tarawing account.',
+    createdAt: '2026-10-26T10:00:00.000Z',
+    updatedAt: '2026-10-26T10:00:00.000Z',
+  }],
 };
 
 const READING = {
@@ -69,7 +96,8 @@ const READING = {
   question: 'What should I notice?',
   status: 'new',
   resultBasic: { deck: 'tarot', cards: [] },
-  deepInsightsReport: null,
+  detailedReportReady: true,
+  deepInsightsReady: true,
   createdAt: '2026-10-26T10:00:00.000Z',
 };
 
@@ -202,12 +230,24 @@ test('query-param routes prerender and expose their page controls', async ({ pag
 
 test('user auth provider restores the session without the dashboard circular logo', async ({ page }) => {
   await useUserSession(page);
+  await page.route('**/api/readings/rd_preview/export-pdf*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/pdf',
+    body: '%PDF-1.4\n%%EOF',
+  }));
   await page.goto('/dashboard');
 
   await expect(page.getByRole('heading', { name: 'Your dashboard', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Your dashboard' })).toBeVisible();
 
   await expect(page.locator('img.brand-logo--circular')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Download detail PDF' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download Deep Insights PDF' })).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download detail PDF' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('tarot-detailed.pdf');
+
   await page.getByRole('button', { name: 'Load more readings' }).click();
   await expect(page.getByText('Second page reading')).toBeVisible();
 
@@ -216,7 +256,61 @@ test('user auth provider restores the session without the dashboard circular log
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem('tarawing_token'))).toBeNull();
 });
 
-test('login and register use the same original form width without demo credentials', async ({ page }) => {
+test('normal user navigating to admin is redirected home', async ({ page }) => {
+  await useUserSession(page);
+  await page.goto('/admin/users');
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Read the Cosmos. Find Your Path.' })).toBeVisible();
+});
+
+test('expired admin session navigating to admin returns to admin login', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('tarawing_admin_token', 'expired-admin-token');
+  });
+  await page.route('**/api/admin/me', (route) => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Your session has expired. Please sign in again.' }),
+  }));
+
+  await page.goto('/admin/users');
+
+  await expect(page).toHaveURL(/\/admin\/login$/);
+  await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('tarawing_admin_token'))).toBeNull();
+});
+
+test('live admin session expiry redirects to admin login', async ({ page }) => {
+  const expiresAt = Math.floor(Date.now() / 1000) + 2;
+  const payload = Buffer.from(JSON.stringify({ kind: 'admin', exp: expiresAt })).toString('base64url');
+  const token = `preview-header.${payload}.preview-signature`;
+
+  await page.addInitScript((adminToken) => {
+    window.localStorage.setItem('tarawing_admin_token', adminToken);
+  }, token);
+  await page.route('**/api/admin/me', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: ADMIN }),
+  }));
+
+  await page.goto('/admin/users');
+
+  await expect(page).toHaveURL(/\/admin\/login$/, { timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'Admin sign in' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('tarawing_admin_token'))).toBeNull();
+});
+
+test('valid admin session navigating to the user dashboard is redirected home', async ({ page }) => {
+  await useAdminSession(page);
+  await page.goto('/dashboard');
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Read the Cosmos. Find Your Path.' })).toBeVisible();
+});
+
+test('user and admin login forms use the same width without demo credentials', async ({ page }) => {
   await page.goto('/login');
   const loginForm = page.locator('.auth-form');
   await expect(loginForm).toBeVisible();
@@ -228,8 +322,14 @@ test('login and register use the same original form width without demo credentia
   await expect(registerForm).toBeVisible();
   const registerWidth = await registerForm.evaluate((element) => element.getBoundingClientRect().width);
 
+  await page.goto('/admin/login');
+  const adminLoginForm = page.locator('.auth-form');
+  await expect(adminLoginForm).toBeVisible();
+  const adminLoginWidth = await adminLoginForm.evaluate((element) => element.getBoundingClientRect().width);
+
   expect(loginWidth).toBe(420);
   expect(registerWidth).toBe(loginWidth);
+  expect(adminLoginWidth).toBe(loginWidth);
 });
 
 test('admin auth provider renders the square logo and clears the admin session on logout', async ({ page }) => {
@@ -260,7 +360,7 @@ test('admin orders append the next cursor page', async ({ page }) => {
   await expect(page.getByText('detail_spreads')).toBeVisible();
 });
 
-test('admin settings exposes general, pricing, AI, payment, and SMTP tabs', async ({ page }) => {
+test('admin settings exposes Features and Templates with SMTP and verification controls', async ({ page }) => {
   await useAdminSession(page);
   await page.goto('/admin/settings');
 
@@ -268,7 +368,9 @@ test('admin settings exposes general, pricing, AI, payment, and SMTP tabs', asyn
   await expect(page.getByRole('button', { name: 'Report pricing', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'AI mechanism', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Payment methods', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'SMTP', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Features', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Templates', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'SMTP', exact: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'AI mechanism', exact: true }).click();
   await expect(page.getByText('OpenAI primary', { exact: true })).toBeVisible();
@@ -278,10 +380,127 @@ test('admin settings exposes general, pricing, AI, payment, and SMTP tabs', asyn
   await expect(page.getByText('PayPal')).toBeVisible();
   await expect(page.getByAltText('PayPal QR code')).toBeVisible();
 
-  await page.getByRole('button', { name: 'SMTP', exact: true }).click();
+  await page.getByRole('button', { name: 'Features', exact: true }).click();
   await expect(page.getByLabel('SMTP host')).toHaveValue('smtp.example.com');
   await expect(page.getByLabel('SMTP password')).toHaveAttribute('placeholder', /configured/i);
   await expect(page.getByRole('button', { name: 'Send test email' })).toBeVisible();
+  await expect(page.getByLabel('Require email verification before login')).not.toBeChecked();
+
+  await page.getByRole('button', { name: 'Templates', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Email templates' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'PDF report templates' })).toBeVisible();
+  await expect(page.getByText('Verification email', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Add email template' }).click();
+  await expect(page.getByText('New email template', { exact: true })).toBeVisible();
+  const newEmailTemplate = page.locator('.settings-list-item').filter({ hasText: 'New email template' });
+  const existingEmailTemplate = page.locator('.settings-list-item').filter({ hasText: 'Verification email' });
+  await newEmailTemplate.getByLabel('Status').selectOption('enabled');
+  await expect(existingEmailTemplate.getByLabel('Status')).toHaveValue('disabled');
+  await expect(newEmailTemplate.getByRole('button', { name: 'Delete' })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Add PDF template' }).click();
+  await expect(page.getByText('New PDF template', { exact: true })).toBeVisible();
+  const newPdfTemplate = page.locator('.settings-list-item').filter({ hasText: 'New PDF template' });
+  const existingPdfTemplate = page.locator('.settings-list-item').filter({
+    has: page.locator('strong').filter({ hasText: /^Detailed report$/ }),
+  });
+  await newPdfTemplate.getByLabel('Status').selectOption('enabled');
+  await expect(existingPdfTemplate.getByLabel('Status')).toHaveValue('disabled');
+
+  await page.getByRole('button', { name: 'Free templates', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Free templates' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add free template' }).click();
+  await expect(page.getByText('New free template', { exact: true })).toBeVisible();
+});
+
+test('admin can contact a user with a freeform template', async ({ page }) => {
+  let contactPayload: { subject?: string; body?: string } | null = null;
+  await useAdminSession(page);
+  await page.route('**/api/admin/users/usr_preview/contact', (route) => {
+    contactPayload = route.request().postDataJSON();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { sent: true } }),
+    });
+  });
+
+  await page.goto('/admin/users');
+  await page.getByRole('button', { name: 'Contact' }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('Free template').selectOption('free_preview');
+  await expect(page.getByLabel('Email subject')).toHaveValue('Hello {{name}}');
+  await page.getByRole('button', { name: 'Send email' }).click();
+
+  await expect(page.getByText('Email sent to preview@tarawing.app.')).toBeVisible();
+  expect(contactPayload).toEqual({
+    subject: 'Hello {{name}}',
+    body: 'We are checking in about your Tarawing account.',
+  });
+});
+
+test('admin monitor lists email errors and searches by date and event type', async ({ page }) => {
+  let lastMonitorUrl = '';
+  await useAdminSession(page);
+  await page.route('**/api/admin/monitor*', (route) => {
+    lastMonitorUrl = route.request().url();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          items: [{
+            id: 'log_email_error',
+            adminId: null,
+            adminName: null,
+            action: 'email.password_reset.error',
+            target: 'usr_preview',
+            meta: {
+              level: 'error',
+              message: 'Password-reset email failed',
+              errorMessage: 'SMTP unavailable',
+            },
+            createdAt: '2026-11-08T01:00:00.000Z',
+          }],
+          eventTypes: [
+            'email.password_reset.error',
+            'settings.update',
+          ],
+        },
+      }),
+    });
+  });
+
+  await page.goto('/admin/monitor');
+  await expect(page.getByRole('heading', { name: 'Monitor', level: 1 })).toBeVisible();
+  await expect(page.locator('tbody').getByText('email / password reset / error')).toBeVisible();
+  await expect(page.locator('tbody').getByText('Password-reset email failed')).toBeVisible();
+
+  const monitorLink = page.getByRole('link', { name: 'Monitor', exact: true });
+  const adminAccountsLink = page.getByRole('link', { name: 'Admin accounts', exact: true });
+  const monitorBox = await monitorLink.boundingBox();
+  const adminAccountsBox = await adminAccountsLink.boundingBox();
+  expect(monitorBox && adminAccountsBox && monitorBox.y < adminAccountsBox.y).toBe(true);
+
+  await page.getByLabel('From date').fill('2026-11-01');
+  await page.getByLabel('To date').fill('2026-11-08');
+  await page.getByLabel('Event type').selectOption('email.password_reset.error');
+  await page.getByRole('button', { name: 'Search' }).click();
+
+  await expect.poll(() => {
+    const url = new URL(lastMonitorUrl);
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    return {
+      hasValidFrom: !!from && !Number.isNaN(Date.parse(from)),
+      hasValidTo: !!to && !Number.isNaN(Date.parse(to)),
+      eventType: url.searchParams.get('eventType'),
+    };
+  }).toEqual({
+    hasValidFrom: true,
+    hasValidTo: true,
+    eventType: 'email.password_reset.error',
+  });
 });
 
 test('admin orders show owner email and verification controls', async ({ page }) => {

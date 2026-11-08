@@ -141,6 +141,46 @@ function sanitizeSmtpForAdmin(smtp = {}) {
   };
 }
 
+function templateTimestamp(template) {
+  return Date.parse(template?.updatedAt || template?.updated_at || template?.createdAt || template?.created_at || '') || 0;
+}
+
+function normalizeEnabledTemplates(templates) {
+  if (!Array.isArray(templates)) return [];
+  const winners = new Map();
+  for (const template of templates) {
+    if (template?.status !== 'enabled') continue;
+    const current = winners.get(template.kind);
+    if (!current || templateTimestamp(template) > templateTimestamp(current)) {
+      winners.set(template.kind, template);
+    }
+  }
+  return templates.map((template) => (
+    template?.status === 'enabled' && winners.get(template.kind)?.id !== template.id
+      ? { ...template, status: 'disabled' }
+      : template
+  ));
+}
+
+function assertCanDeleteEnabledTemplates(current, incoming, label) {
+  if (!Array.isArray(current) || !Array.isArray(incoming)) return;
+  const incomingById = new Map(incoming.map((template) => [template.id, template]));
+  for (const template of current) {
+    if (template?.status !== 'enabled') continue;
+    const next = incomingById.get(template.id);
+    const removedFromEvent = !next || next.kind !== template.kind;
+    if (!removedFromEvent) continue;
+    const replacement = incoming.some((candidate) => (
+      candidate.id !== template.id
+      && candidate.kind === template.kind
+      && candidate.status === 'enabled'
+    ));
+    if (!replacement) {
+      throw new Error(`Enable another ${label} template for this event before deleting "${template.name}".`);
+    }
+  }
+}
+
 function settingsForAdmin(settings = {}) {
   return {
     ...settings,
@@ -151,6 +191,9 @@ function settingsForAdmin(settings = {}) {
     },
     paymentMethods: Array.isArray(settings.paymentMethods) ? settings.paymentMethods : [],
     smtp: sanitizeSmtpForAdmin(settings.smtp),
+    emailTemplates: Array.isArray(settings.emailTemplates) ? settings.emailTemplates : [],
+    pdfTemplates: Array.isArray(settings.pdfTemplates) ? settings.pdfTemplates : [],
+    freeformTemplates: Array.isArray(settings.freeformTemplates) ? settings.freeformTemplates : [],
   };
 }
 
@@ -200,15 +243,39 @@ function auditSettings(settings = {}) {
       fromEmail: settings.smtp.fromEmail || '',
       hasPassword: !!settings.smtp.passwordEncrypted,
     } : null,
+    emailTemplates: Array.isArray(settings.emailTemplates)
+      ? settings.emailTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        kind: template.kind,
+        status: template.status,
+      }))
+      : [],
+    pdfTemplates: Array.isArray(settings.pdfTemplates)
+      ? settings.pdfTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        kind: template.kind,
+        status: template.status,
+      }))
+      : [],
+    freeformTemplates: Array.isArray(settings.freeformTemplates)
+      ? settings.freeformTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+      }))
+      : [],
   };
 }
 
 module.exports = {
+  assertCanDeleteEnabledTemplates,
   auditSettings,
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,
   mergeSmtpSettings,
+  normalizeEnabledTemplates,
   publicPaymentMethods,
   publicSettings,
   sanitizeAiEndpointsForAdmin,

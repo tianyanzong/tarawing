@@ -21,6 +21,35 @@ const publicSiteUrl = z.string().url().refine(
   { message: 'Public site URL must use HTTP or HTTPS.' },
 );
 const optionalEmail = z.union([z.literal(''), z.string().email()]);
+const templateStatus = z.enum(['enabled', 'disabled']);
+const templateTimestamp = z.string().datetime();
+const emailTemplate = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  kind: z.enum(['email_verification', 'password_reset', 'report_ready']),
+  status: templateStatus,
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(20_000),
+  createdAt: templateTimestamp,
+  updatedAt: templateTimestamp,
+});
+const pdfTemplate = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  kind: z.enum(['detail', 'deep_insights']),
+  status: templateStatus,
+  content: z.string().min(1).max(100_000),
+  createdAt: templateTimestamp,
+  updatedAt: templateTimestamp,
+});
+const freeformTemplate = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(20_000),
+  createdAt: templateTimestamp,
+  updatedAt: templateTimestamp,
+});
 
 const aiEndpoint = z.object({
   id: z.string().min(1).max(80),
@@ -116,6 +145,16 @@ const S = {
   smtpTest: z.object({
     to: z.string().email(),
   }),
+  monitorQuery: z.object({
+    from: z.string().datetime({ offset: true }).optional(),
+    to: z.string().datetime({ offset: true }).optional(),
+    eventType: z.string().max(120).optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(100),
+  }),
+  contactUser: z.object({
+    subject: z.string().min(1).max(200),
+    body: z.string().min(1).max(20_000),
+  }),
 
   createReading: z.object({
     type: z.enum(READING_TYPES),
@@ -190,6 +229,9 @@ const S = {
     }).optional(),
     paymentMethods: z.array(paymentMethod).max(20).optional(),
     smtp: smtpSettings.optional(),
+    emailTemplates: z.array(emailTemplate).max(100).optional(),
+    pdfTemplates: z.array(pdfTemplate).max(100).optional(),
+    freeformTemplates: z.array(freeformTemplate).max(100).optional(),
   }).passthrough(), // allow unknown fields through rather than stripping them silently
 };
 

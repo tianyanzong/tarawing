@@ -6,6 +6,7 @@
  */
 'use strict';
 const PDFDocument = require('pdfkit');
+const { DEFAULT_PDF_TEMPLATE_CONTENT } = require('../data/defaultTemplates');
 
 const CATEGORY_LABEL = { tarot: 'Tarot', astrology: 'Astrology', spreads: 'Sacred Layout Spread' };
 const GOLD = '#B8434F';
@@ -27,7 +28,38 @@ function getPdfReportContent(reading, category, tier = 'detail') {
   };
 }
 
-function renderReportPdf(reading, category, tier = 'detail') {
+function templateTimestamp(template) {
+  return Date.parse(template?.createdAt || template?.created_at || template?.updatedAt || template?.updated_at || '') || 0;
+}
+
+function selectPdfTemplate(templates, tier) {
+  if (!Array.isArray(templates)) return null;
+  return templates
+    .filter((template) => template?.kind === tier && template.status === 'enabled')
+    .sort((a, b) => templateTimestamp(b) - templateTimestamp(a))[0] || null;
+}
+
+function renderPdfTemplate(template, content, reading, category) {
+  const variables = {
+    title: content.title,
+    type: String(reading.type || '').replaceAll('_', ' '),
+    generated_at: new Date(reading.updated_at || reading.updatedAt || reading.created_at || reading.createdAt).toLocaleString(),
+    question: reading.question ? `"${reading.question}"` : 'No question supplied',
+    report_body: content.body,
+    footer: content.footer,
+    category: CATEGORY_LABEL[category] || category || '',
+  };
+  return renderTemplateString(template?.content || DEFAULT_PDF_TEMPLATE_CONTENT, variables);
+}
+
+function renderTemplateString(value, variables) {
+  return String(value || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_match, key) => {
+    const replacement = variables[key.toLowerCase()];
+    return replacement === undefined || replacement === null ? '' : String(replacement);
+  });
+}
+
+function renderReportPdf(reading, category, tier = 'detail', template = null) {
   const doc = new PDFDocument({ size: 'A4', margins: { top: 64, bottom: 64, left: 64, right: 64 } });
   const content = getPdfReportContent(reading, category, tier);
 
@@ -37,22 +69,36 @@ function renderReportPdf(reading, category, tier = 'detail') {
   doc.strokeColor(INK).lineWidth(1).moveTo(doc.x, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();
   doc.moveDown(1);
 
-  doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(content.title);
-  doc.font('Helvetica').fontSize(10).fillColor(MUTED)
-    .text(`Type: ${reading.type.replace(/_/g, ' ')}`)
-    .text(`Generated: ${new Date(reading.updated_at || reading.created_at).toLocaleString()}`);
-  if (reading.question) doc.text(`Question: "${reading.question}"`);
-  doc.moveDown(1);
+  if (template) {
+    doc.fillColor(INK).font('Helvetica').fontSize(11.5).text(
+      renderPdfTemplate(template, content, reading, category),
+      { align: 'left', lineGap: 4 },
+    );
+  } else {
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(content.title);
+    doc.font('Helvetica').fontSize(10).fillColor(MUTED)
+      .text(`Type: ${reading.type.replace(/_/g, ' ')}`)
+      .text(`Generated: ${new Date(reading.updated_at || reading.created_at).toLocaleString()}`);
+    if (reading.question) doc.text(`Question: "${reading.question}"`);
+    doc.moveDown(1);
 
-  doc.fillColor(INK).font('Helvetica').fontSize(12).text(content.body, {
-    align: 'left', lineGap: 4,
-  });
+    doc.fillColor(INK).font('Helvetica').fontSize(12).text(content.body, {
+      align: 'left', lineGap: 4,
+    });
 
-  doc.moveDown(2);
-  doc.fillColor(MUTED).fontSize(9).text(content.footer, { align: 'left' });
+    doc.moveDown(2);
+    doc.fillColor(MUTED).fontSize(9).text(content.footer, { align: 'left' });
+  }
 
   doc.end();
   return doc;
 }
 
-module.exports = { getPdfReportContent, renderReportPdf };
+module.exports = {
+  DEFAULT_PDF_TEMPLATE_CONTENT,
+  getPdfReportContent,
+  renderPdfTemplate,
+  renderReportPdf,
+  renderTemplateString,
+  selectPdfTemplate,
+};

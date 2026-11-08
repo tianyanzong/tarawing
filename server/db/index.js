@@ -13,6 +13,11 @@ const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 const { FAQ_SEED, ARTICLE_SEED } = require('./seed-data');
 const {
+  TEMPLATE_SEED_VERSION,
+  seededEmailTemplates,
+  seededPdfTemplates,
+} = require('../data/defaultTemplates');
+const {
   DEMO_USER, DEMO_READINGS, DEMO_ORDERS, DEMO_NOTIFICATIONS, DEMO_CONSULTATIONS,
 } = require('./demo-seed-data');
 
@@ -257,6 +262,8 @@ async function initSchema(database = db) {
     meta        JSONB,
     created_at  TEXT NOT NULL
   )`);
+  await database.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC)');
+  await database.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action,created_at DESC)');
 
   logger.info('DB schema v1 ready');
 }
@@ -380,6 +387,19 @@ async function seedSettings(database = db) {
       endpoints: Array.isArray(value.aiMechanism?.endpoints) ? value.aiMechanism.endpoints : [],
     };
     value.paymentMethods = Array.isArray(value.paymentMethods) ? value.paymentMethods : [];
+    const seedTimestamp = now();
+    if (value.templateSeedVersion !== TEMPLATE_SEED_VERSION) {
+      if (!Array.isArray(value.emailTemplates) || value.emailTemplates.length === 0) {
+        value.emailTemplates = seededEmailTemplates(seedTimestamp);
+      }
+      if (!Array.isArray(value.pdfTemplates) || value.pdfTemplates.length === 0) {
+        value.pdfTemplates = seededPdfTemplates(seedTimestamp);
+      }
+      value.templateSeedVersion = TEMPLATE_SEED_VERSION;
+    }
+    value.emailTemplates = Array.isArray(value.emailTemplates) ? value.emailTemplates : [];
+    value.pdfTemplates = Array.isArray(value.pdfTemplates) ? value.pdfTemplates : [];
+    value.freeformTemplates = Array.isArray(value.freeformTemplates) ? value.freeformTemplates : [];
     value.requireEmailVerification = value.requireEmailVerification === true;
     value.smtp = {
       enabled: false,
@@ -403,6 +423,7 @@ async function seedSettings(database = db) {
     }
     return;
   }
+  const seedTimestamp = now();
   await database.run(`INSERT INTO settings (key,value,updated_at) VALUES ('site',$1,$2)`, [
     JSON.stringify({
       siteName: BRAND_NAME,
@@ -428,6 +449,10 @@ async function seedSettings(database = db) {
         endpoints: [],
       },
       paymentMethods: [],
+      emailTemplates: seededEmailTemplates(seedTimestamp),
+      pdfTemplates: seededPdfTemplates(seedTimestamp),
+      templateSeedVersion: TEMPLATE_SEED_VERSION,
+      freeformTemplates: [],
       smtp: {
         enabled: false,
         host: '',

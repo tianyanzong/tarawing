@@ -51,7 +51,8 @@ export interface ReadingSummary {
   question: string | null;
   status: string;
   resultBasic: SpreadResult | NatalChartResult;
-  deepInsightsReport: string | null;
+  detailedReportReady: boolean;
+  deepInsightsReady: boolean;
   createdAt: string;
 }
 
@@ -186,6 +187,25 @@ export interface AdminAccount {
   createdAt: string;
 }
 
+export interface MonitorLog {
+  id: string;
+  adminId: string | null;
+  adminName: string | null;
+  action: string;
+  target: string | null;
+  meta: {
+    level?: string;
+    message?: string;
+    [key: string]: unknown;
+  } | null;
+  createdAt: string;
+}
+
+export interface MonitorResult {
+  items: MonitorLog[];
+  eventTypes: string[];
+}
+
 export interface Consultation {
   id: string;
   name: string | null;
@@ -231,6 +251,40 @@ export interface PaymentMethod {
   order: number;
 }
 
+export type TemplateStatus = 'enabled' | 'disabled';
+export type EmailTemplateKind = 'email_verification' | 'password_reset' | 'report_ready';
+export type PdfTemplateKind = 'detail' | 'deep_insights';
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  kind: EmailTemplateKind;
+  status: TemplateStatus;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PdfTemplate {
+  id: string;
+  name: string;
+  kind: PdfTemplateKind;
+  status: TemplateStatus;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FreeformTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SiteSettings {
   siteName: string;
   tagline: string;
@@ -249,6 +303,9 @@ export interface SiteSettings {
   };
   paymentMethods: PaymentMethod[];
   smtp: SmtpSettings;
+  emailTemplates: EmailTemplate[];
+  pdfTemplates: PdfTemplate[];
+  freeformTemplates: FreeformTemplate[];
 }
 
 export interface SmtpSettings {

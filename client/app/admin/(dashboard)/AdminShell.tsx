@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; perm?: string }[] = [
   { href: '/admin/consultations', label: 'Consultations', perm: 'consults' },
   { href: '/admin/content', label: 'Content & FAQ', perm: 'content' },
   { href: '/admin/settings', label: 'Settings', perm: 'settings' },
+  { href: '/admin/monitor', label: 'Monitor' },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {

@@ -28,26 +28,28 @@ export default function AdminLoginPage() {
 
   return (
     <div className="container container--narrow" style={{ paddingTop: 90, paddingBottom: 80 }}>
-      <h1 style={{ fontSize: 26, marginBottom: 6 }}>Admin sign in</h1>
-      <p className="form-note" style={{ marginBottom: 26 }}>Tarawing internal console.</p>
-      <form onSubmit={submit}>
-        <div className="form-field">
-          <label>Username</label>
-          <input required value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
-        </div>
-        <div className="form-field">
-          <label>Password</label>
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-      <p className="form-note" style={{ marginTop: 18 }}>
-        Bootstrap credentials: username from <code>ADMIN_USERNAME</code> (default <code>admin</code>),
-        password from <code>ADMIN_TOKEN</code> in <code>server/.env</code>.
-      </p>
+      <div className="auth-form">
+        <h1 style={{ fontSize: 26, marginBottom: 6 }}>Admin sign in</h1>
+        <p className="form-note" style={{ marginBottom: 26 }}>Tarawing internal console.</p>
+        <form onSubmit={submit}>
+          <div className="form-field">
+            <label>Username</label>
+            <input required value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+          </div>
+          <div className="form-field">
+            <label>Password</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p className="form-note" style={{ marginTop: 18 }}>
+          Bootstrap credentials: username from <code>ADMIN_USERNAME</code> (default <code>admin</code>),
+          password from <code>ADMIN_TOKEN</code> in <code>server/.env</code>.
+        </p>
+      </div>
     </div>
   );
 }

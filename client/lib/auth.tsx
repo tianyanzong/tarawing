@@ -6,9 +6,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import {
   clearAdminToken,
@@ -70,6 +71,22 @@ const ADMIN_CONFIG: SessionConfig<AdminIdentity> = {
 const UserAuthContext = createContext<AuthContextValue<User> | undefined>(undefined);
 const AdminAuthContext = createContext<AuthContextValue<AdminIdentity> | undefined>(undefined);
 
+function getJwtExpiryMs(token: string | null) {
+  if (!token) return null;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const parsed = JSON.parse(window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='))) as {
+      exp?: unknown;
+    };
+    return typeof parsed.exp === 'number' ? parsed.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 function useSession<T>(config: SessionConfig<T>): AuthContextValue<T> {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [session, setSession] = useState<T | null>(null);
@@ -114,6 +131,32 @@ function useSession<T>(config: SessionConfig<T>): AuthContextValue<T> {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, [config.tokenKey, refresh]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    let timer: number | undefined;
+    const checkExpiry = () => {
+      const expiresAt = getJwtExpiryMs(config.getToken());
+      if (!expiresAt) return;
+
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) {
+        config.clearToken();
+        setSession(null);
+        setError(null);
+        setStatus('anonymous');
+        return;
+      }
+
+      timer = window.setTimeout(checkExpiry, Math.min(remaining, 2_147_000_000));
+    };
+
+    checkExpiry();
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [config, status]);
 
   const signIn = useCallback(async (token: string, nextSession?: T) => {
     config.setToken(token);
@@ -208,5 +251,94 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
   if (status !== 'authenticated') return null;
+  return <>{children}</>;
+}
+
+type CrossRoleStatus = 'idle' | 'checking' | 'none' | 'user';
+
+export function AdminAccessGate({ children }: { children: React.ReactNode }) {
+  const { status: adminStatus, refresh } = useAdminAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const previousPathname = useRef(pathname);
+  const [crossRoleStatus, setCrossRoleStatus] = useState<CrossRoleStatus>('idle');
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+    if (adminStatus === 'authenticated') void refresh();
+  }, [adminStatus, pathname, refresh]);
+
+  useEffect(() => {
+    if (adminStatus === 'authenticated') {
+      setCrossRoleStatus('idle');
+      if (pathname === '/admin/login') router.replace('/admin');
+      return;
+    }
+    if (adminStatus !== 'anonymous') return;
+
+    const userToken = getUserToken();
+    if (!userToken) {
+      setCrossRoleStatus('none');
+      if (pathname !== '/admin/login') router.replace('/admin/login');
+      return;
+    }
+
+    let active = true;
+    setCrossRoleStatus('checking');
+    api.get<User>('/api/auth/me')
+      .then(() => {
+        if (!active) return;
+        setCrossRoleStatus('user');
+        router.replace('/');
+      })
+      .catch((error) => {
+        if (!active) return;
+        if (error instanceof ApiError && [401, 403].includes(error.status)) {
+          clearUserToken();
+        }
+        setCrossRoleStatus('none');
+        if (pathname !== '/admin/login') router.replace('/admin/login');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [adminStatus, pathname, router]);
+
+  const checking = (
+    <div className="container" style={{ paddingTop: 60 }}>
+      <p className="form-note">Checking access...</p>
+    </div>
+  );
+
+  if (adminStatus === 'loading') return checking;
+  if (adminStatus === 'authenticated') {
+    return pathname === '/admin/login' ? checking : <>{children}</>;
+  }
+  if (adminStatus === 'anonymous') {
+    if (crossRoleStatus === 'idle' || crossRoleStatus === 'checking') return checking;
+    if (crossRoleStatus === 'user') return null;
+    return pathname === '/admin/login' ? <>{children}</> : checking;
+  }
+  return <>{children}</>;
+}
+
+export function UserWorkspaceGuard({ children }: { children: React.ReactNode }) {
+  const { status: adminStatus } = useAdminAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (adminStatus === 'authenticated') router.replace('/');
+  }, [adminStatus, router]);
+
+  if (adminStatus === 'loading') {
+    return (
+      <div className="container" style={{ paddingTop: 50 }}>
+        <p className="form-note">Checking workspace access...</p>
+      </div>
+    );
+  }
+  if (adminStatus === 'authenticated') return null;
   return <>{children}</>;
 }

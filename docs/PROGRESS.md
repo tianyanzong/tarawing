@@ -789,6 +789,67 @@ promise. Corrected:
 - [x] Added browser coverage that the header logo uses the original WebP rather
       than an `/_next/image` variant.
 
+## Batch 47 — Cross-role navigation guard (DONE)
+- [x] Valid normal-user sessions navigating under `/admin` are redirected home
+      instead of being sent to the admin login screen.
+- [x] Admin JWT expiry now clears the admin session and redirects to
+      `/admin/login`; admin navigation also revalidates the session.
+- [x] Valid admin sessions navigating to the normal user dashboard are
+      redirected home.
+- [x] Added browser coverage for all three cross-role and timeout paths.
+
+## Batch 48 — Admin templates and dashboard PDF downloads (DONE)
+- [x] Confirmed the existing login recovery link and forgot/reset/verify pages
+      already complete the password-recovery flow.
+- [x] Matched the admin login form to the normal 420px user login width.
+- [x] Renamed the SMTP settings tab to Features and moved mandatory email
+      verification into that tab below the SMTP configuration.
+- [x] Added enabled/disabled email templates for verification, password
+      recovery, and report-ready notifications. Each event has at most one
+      enabled template, with code defaults as fallback.
+- [x] Added enabled/disabled detailed-report and Deep Insights PDF templates.
+      Each report tier has at most one enabled template, with the existing code
+      layout as fallback.
+- [x] Added report-ready email delivery after detailed or Deep Insights report
+      generation, while keeping notification inserts and email failures
+      non-blocking for report access.
+- [x] Added detail and Deep Insights PDF download actions to the user dashboard
+      when the corresponding generated report exists.
+- [x] Added schema, mail, PDF selection, settings UI, login-width, recovery,
+      and dashboard download coverage.
+
+## Batch 49 — Versioned templates, free templates, and user contact (DONE)
+- [x] Allow multiple saved versions per system event and report tier while
+      enforcing at most one enabled template for each event/tier.
+- [x] Enabling a template automatically disables the previously active template
+      in the same event; the API normalizes competing enabled versions.
+- [x] Require another template for the same event to be enabled before deleting
+      the currently active one, in both the UI and server validation.
+- [x] Added a Free templates section inside Templates. Free templates are
+      reusable messages not bound to a system event.
+- [x] Added a Contact action after Delete in Admin Users, with free-template
+      selection or manual subject/message entry, delivered through the
+      configured SMTP service.
+- [x] Seeded one enabled email template for verification, password recovery,
+      and report-ready events, plus one enabled PDF template for detailed and
+      Deep Insights reports. A seed-version marker prevents deleted templates
+      from being recreated on every restart.
+- [x] Added server and browser coverage for template activation/deletion rules
+      and the admin contact email flow.
+
+## Batch 50 — Admin monitor (DONE)
+- [x] Added Monitor above Admin accounts in the admin navigation.
+- [x] Reused `audit_logs` as the unified administrative/system event stream and
+      added indexes for recent-log and event-type queries.
+- [x] Persisted structured SMTP, verification, password-reset, report-ready, and
+      admin-contact email failures with level, message, target, and error data.
+- [x] Added a validated, parameterized monitor API with date, event-type, and
+      result-limit filters.
+- [x] Added the Monitor page showing time, level, event type, message, actor,
+      and target, with date-range and event-type search.
+- [x] Added unit and browser coverage for structured audit events, monitor query
+      validation, email-error visibility, navigation order, and filters.
+
 ### Known limitations to keep surfacing honestly (do not silently fix by hiding)
 - Mercury–Saturn planetary positions: not implemented (Sun/Moon/Ascendant only)
 - Payment: manual QR methods with admin verification only; no automatic bank

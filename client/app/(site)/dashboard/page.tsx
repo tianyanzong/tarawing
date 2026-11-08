@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, ApiError } from '@/lib/api';
+import { api, downloadFile, ApiError } from '@/lib/api';
 import { useUserAuth } from '@/lib/auth';
 import type { CursorPage, ReadingSummary } from '@/lib/types';
 import AccountSettings from '@/components/AccountSettings';
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   async function loadReadings(cursor?: string) {
     setLoadingMore(!!cursor);
@@ -48,6 +49,21 @@ export default function DashboardPage() {
       setError(authError || 'Could not verify your session.');
     }
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function downloadReport(reading: ReadingSummary, tier: 'detail' | 'deep_insights') {
+    const key = `${reading.id}-${tier}`;
+    setDownloading(key);
+    setError(null);
+    try {
+      const query = tier === 'deep_insights' ? '?tier=deep_insights' : '';
+      const filename = `${reading.type.replaceAll('_', '-')}-${tier === 'deep_insights' ? 'deep-insights' : 'detailed'}.pdf`;
+      await downloadFile(`/api/readings/${reading.id}/export-pdf${query}`, filename);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not download the report.');
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   if (status === 'loading') {
     return <div className="container" style={{ paddingTop: 50 }}><p className="form-note">Checking your session...</p></div>;
@@ -94,10 +110,33 @@ export default function DashboardPage() {
                   <td>{r.question || '—'}</td>
                   <td>
                     <span className={`tag ${STATUS_CLASS[r.status] || ''}`}>{r.status}</span>
-                    {r.deepInsightsReport && <span className="tag tag--gold" style={{ marginLeft: 6 }}>deep insights ready</span>}
+                    {r.detailedReportReady && <span className="tag tag--sky" style={{ marginLeft: 6 }}>detail ready</span>}
+                    {r.deepInsightsReady && <span className="tag tag--gold" style={{ marginLeft: 6 }}>deep insights ready</span>}
                   </td>
                   <td>{new Date(r.createdAt).toLocaleDateString()}</td>
-                  <td><Link href={`/readings/${r.id}`} className="btn btn-ghost">View</Link></td>
+                  <td>
+                    <div className="table-actions">
+                      <Link href={`/readings/${r.id}`} className="btn btn-ghost btn-compact">View</Link>
+                      {r.detailedReportReady && (
+                        <button
+                          className="btn btn-ghost btn-compact"
+                          onClick={() => downloadReport(r, 'detail')}
+                          disabled={downloading === `${r.id}-detail`}
+                        >
+                          {downloading === `${r.id}-detail` ? 'Downloading...' : 'Download detail PDF'}
+                        </button>
+                      )}
+                      {r.deepInsightsReady && (
+                        <button
+                          className="btn btn-ghost btn-compact"
+                          onClick={() => downloadReport(r, 'deep_insights')}
+                          disabled={downloading === `${r.id}-deep_insights`}
+                        >
+                          {downloading === `${r.id}-deep_insights` ? 'Downloading...' : 'Download Deep Insights PDF'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {readings && readings.length === 0 && (

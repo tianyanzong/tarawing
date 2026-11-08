@@ -6,16 +6,62 @@ const test = require('node:test');
 process.env.SETTINGS_ENCRYPTION_KEY = 'test-settings-encryption-key';
 
 const {
+  assertCanDeleteEnabledTemplates,
   auditSettings,
   decryptSecret,
   encryptSecret,
   mergeAiEndpoints,
   mergeSmtpSettings,
+  normalizeEnabledTemplates,
   publicPaymentMethods,
   publicSettings,
   sanitizeAiEndpointsForAdmin,
   sanitizeSmtpForAdmin,
 } = require('../services/settingsSecurity');
+
+test('allows multiple templates per event but keeps only the newest enabled', () => {
+  const normalized = normalizeEnabledTemplates([
+    {
+      id: 'old',
+      kind: 'password_reset',
+      status: 'enabled',
+      name: 'Old reset',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'new',
+      kind: 'password_reset',
+      status: 'enabled',
+      name: 'New reset',
+      createdAt: '2026-02-01T00:00:00.000Z',
+      updatedAt: '2026-02-01T00:00:00.000Z',
+    },
+  ]);
+
+  assert.equal(normalized.find((template) => template.id === 'old').status, 'disabled');
+  assert.equal(normalized.find((template) => template.id === 'new').status, 'enabled');
+});
+
+test('requires another enabled template before deleting the active one', () => {
+  const current = [{
+    id: 'active',
+    kind: 'password_reset',
+    status: 'enabled',
+    name: 'Active reset',
+  }];
+
+  assert.throws(
+    () => assertCanDeleteEnabledTemplates(current, [], 'email'),
+    /Enable another email template/,
+  );
+  assert.doesNotThrow(() => assertCanDeleteEnabledTemplates(current, [{
+    id: 'replacement',
+    kind: 'password_reset',
+    status: 'enabled',
+    name: 'Replacement reset',
+  }], 'email'));
+});
 
 test('encrypts and decrypts an API key without retaining plaintext', () => {
   const encrypted = encryptSecret('sk-test-secret');

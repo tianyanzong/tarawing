@@ -36,7 +36,7 @@ async function queryPage(database, {
 
 function listUserReadings(database, userId, limit, cursor = null) {
   return queryPage(database, {
-    select: 'id,type,question,status,result_basic,deep_insights_report,created_at',
+    select: 'id,type,question,status,result_basic,(detailed_report IS NOT NULL) AS detailed_report_ready,(deep_insights_report IS NOT NULL) AS deep_insights_ready,created_at',
     from: 'readings',
     where: ['user_id=$1'],
     params: [userId],

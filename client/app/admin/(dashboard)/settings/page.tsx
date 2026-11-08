@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import type { AiAdapter, AiEndpoint, PaymentMethod, SiteSettings, SmtpSettings } from '@/lib/types';
+import SettingsTemplatesPanel from '@/components/SettingsTemplatesPanel';
 
 const CATEGORY_LABEL: Record<string, string> = { tarot: 'Tarot', astrology: 'Astrology', spreads: 'Spreads' };
 const ADAPTER_LABEL: Record<AiAdapter, string> = {
@@ -17,7 +18,7 @@ const DEFAULT_BASE_URL: Record<AiAdapter, string> = {
   openai_compatible: '',
 };
 
-type SettingsTab = 'general' | 'pricing' | 'ai' | 'payments' | 'smtp';
+type SettingsTab = 'general' | 'pricing' | 'ai' | 'payments' | 'features' | 'templates';
 
 function dollars(cents: number) { return (cents / 100).toFixed(2); }
 function toCents(dollarStr: string) { return Math.round(Number(dollarStr || '0') * 100); }
@@ -199,7 +200,8 @@ export default function AdminSettingsPage() {
         <button className={`tab-btn ${tab === 'pricing' ? 'is-active' : ''}`} onClick={() => setTab('pricing')}>Report pricing</button>
         <button className={`tab-btn ${tab === 'ai' ? 'is-active' : ''}`} onClick={() => setTab('ai')}>AI mechanism</button>
         <button className={`tab-btn ${tab === 'payments' ? 'is-active' : ''}`} onClick={() => setTab('payments')}>Payment methods</button>
-        <button className={`tab-btn ${tab === 'smtp' ? 'is-active' : ''}`} onClick={() => setTab('smtp')}>SMTP</button>
+        <button className={`tab-btn ${tab === 'features' ? 'is-active' : ''}`} onClick={() => setTab('features')}>Features</button>
+        <button className={`tab-btn ${tab === 'templates' ? 'is-active' : ''}`} onClick={() => setTab('templates')}>Templates</button>
       </div>
 
       {tab === 'general' && (
@@ -212,18 +214,6 @@ export default function AdminSettingsPage() {
             <label><input type="checkbox" checked={settings.donationEnabled} onChange={(e) => setSettings({ ...settings, donationEnabled: e.target.checked })} style={{ marginRight: 8 }} />Show donation prompt</label>
           </div>
           <div className="form-field"><label>Donation message</label><textarea rows={3} value={settings.donationMessage} onChange={(e) => setSettings({ ...settings, donationMessage: e.target.value })} /></div>
-          <div className="form-field">
-            <label>
-              <input
-                type="checkbox"
-                checked={settings.requireEmailVerification}
-                onChange={(e) => setSettings({ ...settings, requireEmailVerification: e.target.checked })}
-                style={{ marginRight: 8 }}
-              />
-              Require email verification before login
-            </label>
-            <p className="form-note">Default is off. SMTP must be enabled and complete before this can be turned on.</p>
-          </div>
         </div>
       )}
 
@@ -412,7 +402,7 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {tab === 'smtp' && (
+      {tab === 'features' && (
         <div className="panel settings-panel">
           <div className="settings-section-heading">
             <div>
@@ -495,7 +485,26 @@ export default function AdminSettingsPage() {
             {testMessage && <p className="form-success">{testMessage}</p>}
             {testError && <p className="form-error">{testError}</p>}
           </div>
+
+          <div className="settings-feature-block">
+            <h3 style={{ fontSize: 16, marginBottom: 8 }}>User sign-in policy</h3>
+            <label className="settings-check">
+              <input
+                type="checkbox"
+                checked={settings.requireEmailVerification}
+                onChange={(e) => setSettings({ ...settings, requireEmailVerification: e.target.checked })}
+              />
+              Require email verification before login
+            </label>
+            <p className="form-note">
+              New users must complete email verification before they can sign in. SMTP must be enabled and complete.
+            </p>
+          </div>
         </div>
+      )}
+
+      {tab === 'templates' && (
+        <SettingsTemplatesPanel settings={settings} onChange={setSettings} />
       )}
 
       <div className="settings-save-row">

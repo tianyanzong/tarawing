@@ -1,6 +1,7 @@
 'use strict';
 const nodemailer = require('nodemailer');
 const { decryptSecret } = require('./settingsSecurity');
+const { DEFAULT_EMAIL_TEMPLATES } = require('../data/defaultTemplates');
 
 class MailNotConfiguredError extends Error {
   constructor(message = 'SMTP is not fully configured.') {
@@ -30,8 +31,16 @@ function publicLink(smtp, path, token) {
   return url.toString();
 }
 
+function displayName(smtp) {
+  return String(smtp.fromName || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\r\n"<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function sender(smtp) {
-  const safeName = String(smtp.fromName || '').replace(/[\r\n"<>]/g, ' ').trim();
+  const safeName = displayName(smtp);
   return safeName ? `"${safeName}" <${smtp.fromEmail}>` : smtp.fromEmail;
 }
 
@@ -43,45 +52,81 @@ function commonMessage(smtp, to) {
   };
 }
 
-function buildPasswordResetEmail(smtp, to, token) {
-  const link = publicLink(smtp, '/reset-password', token);
+function templateTimestamp(template) {
+  return Date.parse(template?.createdAt || template?.created_at || template?.updatedAt || template?.updated_at || '') || 0;
+}
+
+function selectEmailTemplate(templates, kind) {
+  if (!Array.isArray(templates)) return null;
+  return templates
+    .filter((template) => template?.kind === kind && template.status === 'enabled')
+    .sort((a, b) => templateTimestamp(b) - templateTimestamp(a))[0] || null;
+}
+
+function renderTemplateString(value, variables) {
+  return String(value || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_match, key) => {
+    const replacement = variables[key.toLowerCase()];
+    return replacement === undefined || replacement === null ? '' : String(replacement);
+  });
+}
+
+function plainTextToHtml(value) {
+  return escapeHtml(value)
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')
+    .replaceAll('\n', '<br />');
+}
+
+function buildTemplatedEmail(smtp, to, kind, variables, template) {
+  const selected = template?.status === 'enabled' ? template : DEFAULT_EMAIL_TEMPLATES[kind];
+  const fullVariables = {
+    site_name: displayName(smtp) || 'Tarawing',
+    email: to,
+    expires_minutes: 30,
+    ...variables,
+  };
+  const subject = renderTemplateString(selected.subject, fullVariables);
+  const text = renderTemplateString(selected.body, fullVariables);
   return {
     ...commonMessage(smtp, to),
-    subject: 'Reset your Tarawing password',
-    text: [
-      'We received a request to reset your Tarawing password.',
-      '',
-      `Reset it within 30 minutes: ${link}`,
-      '',
-      'If you did not request this, you can ignore this email.',
-    ].join('\n'),
-    html: [
-      '<p>We received a request to reset your Tarawing password.</p>',
-      `<p>Account: ${escapeHtml(to)}</p>`,
-      `<p><a href="${escapeHtml(link)}">Reset your password</a></p>`,
-      '<p>This link expires in 30 minutes. If you did not request this, you can ignore this email.</p>',
-    ].join(''),
+    subject,
+    text,
+    html: plainTextToHtml(text),
   };
 }
 
-function buildVerificationEmail(smtp, to, token) {
+function buildPasswordResetEmail(smtp, to, token, template) {
+  const link = publicLink(smtp, '/reset-password', token);
+  return buildTemplatedEmail(smtp, to, 'password_reset', { action_url: link }, template);
+}
+
+function buildVerificationEmail(smtp, to, token, template) {
   const link = publicLink(smtp, '/verify-email', token);
+  return buildTemplatedEmail(smtp, to, 'email_verification', { action_url: link }, template);
+}
+
+function buildReportReadyEmail(smtp, to, context = {}, template) {
+  const workspaceUrl = new URL('/dashboard', smtp.publicSiteUrl).toString();
+  return buildTemplatedEmail(smtp, to, 'report_ready', {
+    reading_type: String(context.readingType || 'reading').replaceAll('_', ' '),
+    question: context.question || 'No question supplied',
+    report_label: context.reportTier === 'deep_insights' ? 'Deep Insights report' : 'Detailed report',
+    workspace_url: workspaceUrl,
+  }, template);
+}
+
+function buildContactEmail(smtp, to, content = {}, variables = {}) {
+  const fullVariables = {
+    site_name: displayName(smtp) || 'Tarawing',
+    email: to,
+    ...variables,
+  };
+  const subject = renderTemplateString(content.subject, fullVariables);
+  const text = renderTemplateString(content.body, fullVariables);
   return {
     ...commonMessage(smtp, to),
-    subject: 'Verify your Tarawing email',
-    text: [
-      'Please verify the email address for your Tarawing account.',
-      '',
-      `Verify within 30 minutes: ${link}`,
-      '',
-      'If you did not create this account, you can ignore this email.',
-    ].join('\n'),
-    html: [
-      '<p>Please verify the email address for your Tarawing account.</p>',
-      `<p>Account: ${escapeHtml(to)}</p>`,
-      `<p><a href="${escapeHtml(link)}">Verify your email</a></p>`,
-      '<p>This link expires in 30 minutes. If you did not create this account, you can ignore this email.</p>',
-    ].join(''),
+    subject,
+    text,
+    html: plainTextToHtml(text),
   };
 }
 
@@ -117,12 +162,20 @@ async function deliver(smtp, message, dependencies = {}) {
   await transport.sendMail(message);
 }
 
-function sendPasswordResetEmail(smtp, to, token, dependencies) {
-  return deliver(smtp, buildPasswordResetEmail(smtp, to, token), dependencies);
+function sendPasswordResetEmail(smtp, to, token, dependencies, template) {
+  return deliver(smtp, buildPasswordResetEmail(smtp, to, token, template), dependencies);
 }
 
-function sendVerificationEmail(smtp, to, token, dependencies) {
-  return deliver(smtp, buildVerificationEmail(smtp, to, token), dependencies);
+function sendVerificationEmail(smtp, to, token, dependencies, template) {
+  return deliver(smtp, buildVerificationEmail(smtp, to, token, template), dependencies);
+}
+
+function sendReportReadyEmail(smtp, to, context, dependencies, template) {
+  return deliver(smtp, buildReportReadyEmail(smtp, to, context, template), dependencies);
+}
+
+function sendContactEmail(smtp, to, content, variables, dependencies) {
+  return deliver(smtp, buildContactEmail(smtp, to, content, variables), dependencies);
 }
 
 function sendTestEmail(smtp, to, dependencies) {
@@ -131,12 +184,20 @@ function sendTestEmail(smtp, to, dependencies) {
 
 module.exports = {
   MailNotConfiguredError,
+  buildContactEmail,
   buildPasswordResetEmail,
+  buildReportReadyEmail,
   buildTestEmail,
   buildVerificationEmail,
   buildTransportOptions,
+  DEFAULT_EMAIL_TEMPLATES,
   escapeHtml,
+  plainTextToHtml,
+  renderTemplateString,
+  selectEmailTemplate,
   sendPasswordResetEmail,
+  sendReportReadyEmail,
+  sendContactEmail,
   sendTestEmail,
   sendVerificationEmail,
 };

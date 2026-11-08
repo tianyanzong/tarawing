@@ -32,10 +32,13 @@ const {
   generateDetailedReportBundle,
   generateSimpleReport,
 } = require('./services/reportService');
-const { renderReportPdf } = require('./services/pdfService');
+const { renderReportPdf, selectPdfTemplate } = require('./services/pdfService');
 const {
   MailNotConfiguredError,
+  selectEmailTemplate,
   sendPasswordResetEmail,
+  sendReportReadyEmail,
+  sendContactEmail,
   sendTestEmail,
   sendVerificationEmail,
 } = require('./services/mailService');
@@ -43,6 +46,7 @@ const {
   consumeAuthToken,
   createAuthToken,
 } = require('./services/authTokenService');
+const { recordAuditEvent } = require('./services/auditService');
 const {
   resolvePriceCents, getAiEndpoints, getAiMechanismSettings, getPaymentMethodById,
   parseProductCode,
@@ -62,9 +66,11 @@ const { categoryOf, CATEGORIES } = require('./data/categories');
 const { parsePagination } = require('./utils/pagination');
 const { dtoResponse } = require('./utils/dto');
 const {
+  assertCanDeleteEnabledTemplates,
   auditSettings,
   mergeAiEndpoints,
   mergeSmtpSettings,
+  normalizeEnabledTemplates,
   publicPaymentMethods,
   publicSettings,
   settingsForAdmin,
@@ -100,7 +106,8 @@ async function getSiteSettings(database = db) {
 async function sendUserVerificationEmail(user, settings, database = db) {
   if (!settings?.smtp?.enabled || !settings.smtp.host || !settings.smtp.fromEmail) return false;
   const { token } = await createAuthToken(database, user.id, 'email_verification');
-  await sendVerificationEmail(settings.smtp, user.email, token);
+  const template = selectEmailTemplate(settings.emailTemplates, 'email_verification');
+  await sendVerificationEmail(settings.smtp, user.email, token, undefined, template);
   return true;
 }
 
@@ -108,8 +115,64 @@ function queueAuthEmail(task, message, metadata = {}) {
   setImmediate(() => {
     Promise.resolve()
       .then(task)
-      .catch((err) => logger.error(message, { err, ...metadata }));
+      .catch(async (err) => {
+        logger.error(message, { err, ...metadata });
+        await recordAuditEvent(db, {
+          eventType: metadata.eventType || 'email.send.error',
+          message,
+          level: 'error',
+          target: metadata.userId || null,
+          metadata: {
+            errorName: err?.name,
+            errorMessage: err?.message,
+            errorCode: err?.code,
+            ...metadata,
+          },
+        }).catch((logError) => logger.error('Could not persist email error log', { err: logError }));
+      });
   });
+}
+
+async function notifyReportReady(database, readingId, userId, reportTier) {
+  if (!userId) return;
+  const reading = await database.one('SELECT * FROM readings WHERE id=$1', [readingId]);
+  if (!reading) return;
+
+  const label = reportTier === 'deep_insights' ? 'Deep Insights report' : 'Detailed report';
+  await database.run(
+    `INSERT INTO notifications (id,user_id,type,message,created_at)
+     VALUES ($1,$2,'report',$3,$4)`,
+    [id('ntf'), userId, `Your ${label} is ready.`, now()],
+  );
+
+  try {
+    const settings = await getSiteSettings(database);
+    if (!settings?.smtp?.enabled || !settings.smtp.host || !settings.smtp.fromEmail) return;
+    const user = await database.one('SELECT email FROM users WHERE id=$1', [userId]);
+    if (!user?.email) return;
+    await sendReportReadyEmail(
+      settings.smtp,
+      user.email,
+      { readingType: reading.type, question: reading.question, reportTier },
+      undefined,
+      selectEmailTemplate(settings.emailTemplates, 'report_ready'),
+    );
+  } catch (error) {
+    logger.error('Report-ready email failed', { err: error, readingId, userId, reportTier });
+    await recordAuditEvent(database, {
+      eventType: 'email.report_ready.error',
+      message: 'Report-ready email failed',
+      level: 'error',
+      target: userId,
+      metadata: {
+        readingId,
+        userId,
+        reportTier,
+        errorName: error?.name,
+        errorMessage: error?.message,
+      },
+    }).catch((logError) => logger.error('Could not persist report email error log', { err: logError }));
+  }
 }
 
 function detailedReportBundleFor(reading) {
@@ -203,11 +266,7 @@ async function finishDeepInsightsPayment(order, userId, database = db) {
     'UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3',
     [generated.text, t, order.reading_id],
   );
-  await database.run(
-    `INSERT INTO notifications (id,user_id,type,message,created_at)
-     VALUES ($1,$2,'payment','Your Deep Insights report is ready.',$3)`,
-    [id('ntf'), userId, t],
-  );
+  await notifyReportReady(database, order.reading_id, userId, 'deep_insights');
   return {
     status: 'ready',
     provider: generated.providerName,
@@ -235,6 +294,13 @@ app.post('/api/auth/register', authRateLimit, validate(S.register), ah(async (re
     verificationEmailSent = await sendUserVerificationEmail(user, settings);
   } catch (err) {
     logger.error('Registration verification email failed', { err, userId: user.id });
+    await recordAuditEvent(db, {
+      eventType: 'email.verification.error',
+      message: 'Registration verification email failed',
+      level: 'error',
+      target: user.id,
+      metadata: { userId: user.id, flow: 'registration', errorName: err?.name, errorMessage: err?.message },
+    }).catch((logError) => logger.error('Could not persist verification email error log', { err: logError }));
   }
 
   if (settings.requireEmailVerification === true) {
@@ -305,6 +371,13 @@ app.put('/api/auth/me', requireActive, validate(S.updateProfile), ah(async (req,
       await sendUserVerificationEmail(updated, await getSiteSettings());
     } catch (err) {
       logger.error('Email-change verification email failed', { err, userId: updated.id });
+      await recordAuditEvent(db, {
+        eventType: 'email.verification.error',
+        message: 'Email-change verification email failed',
+        level: 'error',
+        target: updated.id,
+        metadata: { userId: updated.id, flow: 'email_change', errorName: err?.name, errorMessage: err?.message },
+      }).catch((logError) => logger.error('Could not persist email-change verification error log', { err: logError }));
     }
   }
   res.json({ data: updated });
@@ -326,8 +399,14 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(S.forgotPassword),
   if (user && settings.smtp?.enabled) {
     queueAuthEmail(async () => {
       const { token } = await createAuthToken(db, user.id, 'password_reset');
-      await sendPasswordResetEmail(settings.smtp, user.email, token);
-    }, 'Password-reset email failed', { userId: user.id });
+      await sendPasswordResetEmail(
+        settings.smtp,
+        user.email,
+        token,
+        undefined,
+        selectEmailTemplate(settings.emailTemplates, 'password_reset'),
+      );
+    }, 'Password-reset email failed', { userId: user.id, eventType: 'email.password_reset.error' });
   }
   res.json({ data: { ok: true, message: 'If that email is registered, a reset link has been sent.' } });
 }));
@@ -365,7 +444,7 @@ app.post('/api/auth/resend-verification', authRateLimit, validate(S.resendVerifi
   if (user && !user.email_verified_at) {
     queueAuthEmail(async () => {
       await sendUserVerificationEmail(user, await getSiteSettings());
-    }, 'Resend verification email failed', { userId: user.id });
+    }, 'Resend verification email failed', { userId: user.id, eventType: 'email.verification.error' });
   }
   res.json({ data: { ok: true, message: 'If verification is still needed, a new email has been sent.' } });
 }));
@@ -555,6 +634,7 @@ app.post('/api/readings/:id/detail/skip-payment', requireActive, ah(async (req, 
     );
   }
 
+  let generatedReport = false;
   if (!['detail_tobepaid', 'detail_paid'].includes(r.status)) {
     const detailed = detailedReportBundleFor(r);
     await db.run(
@@ -564,9 +644,11 @@ app.post('/api/readings/:id/detail/skip-payment', requireActive, ah(async (req, 
        WHERE id=$5`,
       [DETAIL_UNPAID, detailed.detailedReport, detailed.aiPrompt, t, r.id],
     );
+    generatedReport = true;
   }
 
   const updated = await db.one('SELECT * FROM readings WHERE id=$1', [r.id]);
+  if (generatedReport) await notifyReportReady(db, r.id, req.user.id, 'detail');
   res.json({ data: await buildReadingView(updated, req.user.id) });
 }));
 
@@ -582,12 +664,14 @@ app.get('/api/readings/:id/export-pdf', requireActive, validate(S.exportPdfQuery
   } else if (!detailAccessFromStatus(r.status).accessible || !r.detailed_report) {
     return res.status(402).json({ error: 'The detailed report is locked. Unlock it first.' });
   }
+  const settings = await getSiteSettings();
+  const template = selectPdfTemplate(settings.pdfTemplates, tier);
   res.setHeader('Content-Type', 'application/pdf');
   const filename = tier === 'deep_insights'
     ? `tarawing-deep-insights-${r.type}-${r.id}.pdf`
     : `tarawing-detailed-report-${r.type}-${r.id}.pdf`;
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  renderReportPdf(r, categoryOf(r.type), tier).pipe(res);
+  renderReportPdf(r, categoryOf(r.type), tier, template).pipe(res);
 }));
 
 app.post('/api/readings/:id/share', requireActive, ah(async (req, res) => {
@@ -845,6 +929,49 @@ app.delete('/api/admin/users/:id', requirePerm('users'), ah(async (req, res) => 
   await db.run('DELETE FROM users WHERE id=$1', [req.params.id]);
   res.json({ data: { deleted: true } });
 }));
+app.post('/api/admin/users/:id/contact', requirePerm('users'), validate(S.contactUser), ah(async (req, res) => {
+  const user = await db.one('SELECT id,name,email FROM users WHERE id=$1', [req.params.id]);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+
+  const settings = await getSiteSettings();
+  try {
+    await sendContactEmail(
+      settings.smtp || {},
+      user.email,
+      req.body,
+      { name: user.name || '', email: user.email },
+    );
+  } catch (error) {
+    if (error instanceof MailNotConfiguredError) {
+      await recordAuditEvent(db, {
+        eventType: 'email.contact.error',
+        message: 'Admin contact email failed: SMTP is not configured',
+        level: 'error',
+        admin: req.admin,
+        target: user.id,
+        metadata: { userId: user.id, errorName: error.name, errorMessage: error.message },
+      }).catch((logError) => logger.error('Could not persist contact email error log', { err: logError }));
+      return res.status(400).json({ error: error.message });
+    }
+    logger.error('Admin contact email failed', { err: error, userId: user.id, adminId: req.admin.id });
+    await recordAuditEvent(db, {
+      eventType: 'email.contact.error',
+      message: 'Admin contact email failed',
+      level: 'error',
+      admin: req.admin,
+      target: user.id,
+      metadata: { userId: user.id, errorName: error?.name, errorMessage: error?.message },
+    }).catch((logError) => logger.error('Could not persist contact email error log', { err: logError }));
+    return res.status(502).json({ error: 'Could not send the contact email. Check the SMTP settings.' });
+  }
+
+  await db.run(
+    `INSERT INTO audit_logs (id,admin_id,admin_name,action,target,meta,created_at)
+     VALUES ($1,$2,$3,'user.contact',$4,$5,$6)`,
+    [id('log'), req.admin.id, req.admin.username, user.id, JSON.stringify({ subject: req.body.subject }), now()],
+  );
+  res.json({ data: { sent: true } });
+}));
 
 app.get('/api/admin/orders', requirePerm('orders'), ah(async (req, res) => {
   const page = parsePagination(req.query);
@@ -917,11 +1044,7 @@ app.post('/api/admin/orders/:id/verify-payment', requirePerm('orders'), ah(async
   });
 
   if (parsed.tier === 'detail') {
-    await db.run(
-      `INSERT INTO notifications (id,user_id,type,message,created_at)
-       VALUES ($1,$2,'payment','Your detail payment was verified. The detailed report is now paid, and Deep Insights is available.',$3)`,
-      [id('ntf'), order.user_id, t],
-    );
+    await notifyReportReady(db, order.reading_id, order.user_id, 'detail');
   } else {
     await finishDeepInsightsPayment(order, order.user_id, db);
   }
@@ -1042,6 +1165,7 @@ app.post('/api/admin/readings/:id/deep-insights/generate-ai', requirePerm(['read
   );
   if (!gen.ok) return res.status(502).json({ error: gen.error });
   await db.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [gen.text, now(), r.id]);
+  await notifyReportReady(db, r.id, r.user_id, 'deep_insights');
   res.json({ data: { deepInsightsReport: gen.text } });
 }));
 app.post('/api/admin/readings/:id/deep-insights/save-manual', requirePerm(['readings', 'orders']), validate(S.saveAiText), ah(async (req, res) => {
@@ -1051,10 +1175,7 @@ app.post('/api/admin/readings/:id/deep-insights/save-manual', requirePerm(['read
     return res.status(402).json({ error: 'A verified Deep Insights payment is required before saving the report.' });
   }
   await db.run('UPDATE readings SET deep_insights_report=$1, updated_at=$2 WHERE id=$3', [req.body.text, now(), r.id]);
-  if (r.user_id) {
-    await db.run('INSERT INTO notifications (id,user_id,type,message,created_at) VALUES ($1,$2,\'payment\',$3,$4)',
-      [id('ntf'), r.user_id, 'Your Deep Insights report is ready.', now()]);
-  }
+  await notifyReportReady(db, r.id, r.user_id, 'deep_insights');
   res.json({ data: { ok: true } });
 }));
 app.post('/api/admin/readings/:id/notes', requirePerm('readings'), ah(async (req, res) => {
@@ -1106,6 +1227,47 @@ app.put('/api/admin/settings', requirePerm('settings'), validate(S.siteSettings)
     next.paymentMethods = paymentMethods;
   }
 
+  if (incoming.emailTemplates) {
+    const ids = incoming.emailTemplates.map((template) => template.id);
+    if (new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: 'Email template IDs must be unique.' });
+    }
+    try {
+      assertCanDeleteEnabledTemplates(current.emailTemplates, incoming.emailTemplates, 'email');
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    next.emailTemplates = normalizeEnabledTemplates(incoming.emailTemplates).map((template) => ({
+      ...template,
+      updatedAt: template.updatedAt || now(),
+    }));
+  }
+  if (incoming.pdfTemplates) {
+    const ids = incoming.pdfTemplates.map((template) => template.id);
+    if (new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: 'PDF template IDs must be unique.' });
+    }
+    try {
+      assertCanDeleteEnabledTemplates(current.pdfTemplates, incoming.pdfTemplates, 'PDF');
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    next.pdfTemplates = normalizeEnabledTemplates(incoming.pdfTemplates).map((template) => ({
+      ...template,
+      updatedAt: template.updatedAt || now(),
+    }));
+  }
+  if (incoming.freeformTemplates) {
+    const ids = incoming.freeformTemplates.map((template) => template.id);
+    if (new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: 'Freeform template IDs must be unique.' });
+    }
+    next.freeformTemplates = incoming.freeformTemplates.map((template) => ({
+      ...template,
+      updatedAt: template.updatedAt || now(),
+    }));
+  }
+
   if (incoming.smtp) {
     next.smtp = mergeSmtpSettings(incoming.smtp, current.smtp || {});
   }
@@ -1129,15 +1291,63 @@ app.post('/api/admin/settings/smtp/test', requirePerm('settings'), validate(S.sm
     res.json({ data: { sent: true } });
   } catch (err) {
     if (err instanceof MailNotConfiguredError) {
+      await recordAuditEvent(db, {
+        eventType: 'email.smtp_test.error',
+        message: 'SMTP test email failed: SMTP is not configured',
+        level: 'error',
+        admin: req.admin,
+        target: 'smtp',
+        metadata: { errorName: err.name, errorMessage: err.message },
+      }).catch((logError) => logger.error('Could not persist SMTP test error log', { err: logError }));
       return res.status(400).json({ error: err.message });
     }
     logger.error('SMTP test email failed', { err });
+    await recordAuditEvent(db, {
+      eventType: 'email.smtp_test.error',
+      message: 'SMTP test email failed',
+      level: 'error',
+      admin: req.admin,
+      target: 'smtp',
+      metadata: { errorName: err?.name, errorMessage: err?.message },
+    }).catch((logError) => logger.error('Could not persist SMTP test error log', { err: logError }));
     res.status(502).json({ error: 'Could not connect to the SMTP server. Check the saved SMTP settings.' });
   }
 }));
 app.get('/api/admin/audit-logs', requirePerm('settings'), ah(async (_req, res) => {
   const rows = await db.all('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200');
   res.json({ data: rows });
+}));
+app.get('/api/admin/monitor', requireAdmin, validate(S.monitorQuery, 'query'), ah(async (req, res) => {
+  const where = [];
+  const params = [];
+  if (req.query.from) {
+    params.push(req.query.from);
+    where.push(`created_at >= $${params.length}`);
+  }
+  if (req.query.to) {
+    params.push(req.query.to);
+    where.push(`created_at < $${params.length}`);
+  }
+  if (req.query.eventType) {
+    params.push(req.query.eventType);
+    where.push(`action = $${params.length}`);
+  }
+  params.push(req.query.limit);
+  const rows = await db.all(
+    `SELECT id,admin_id,admin_name,action,target,meta,created_at
+     FROM audit_logs
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY created_at DESC
+     LIMIT $${params.length}`,
+    params,
+  );
+  const eventTypes = await db.all('SELECT DISTINCT action FROM audit_logs ORDER BY action ASC');
+  res.json({
+    data: {
+      items: rows,
+      eventTypes: eventTypes.map((row) => row.action),
+    },
+  });
 }));
 
 app.get('/api/admin/articles', requirePerm('content'), ah(async (_req, res) => {
